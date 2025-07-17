@@ -1,9 +1,10 @@
 <span align="center">
 
 # Homebridge Shark Clean Vacuum Plugin
+
 [![verified-by-homebridge](https://badgen.net/badge/homebridge/verified/purple)](https://github.com/homebridge/homebridge/wiki/Verified-Plugins)
-[![npm](https://badgen.net/npm/dt/homebridge-sharkiq?color=purple)](https://www.npmjs.com/package/homebridge-sharkiq) 
-[![npm](https://badgen.net/npm/v/homebridge-sharkiq?color=purple)](https://www.npmjs.com/package/homebridge-sharkiq) 
+[![npm](https://badgen.net/npm/dt/@homebridge-plugins/homebridge-sharkiq?color=purple)](https://www.npmjs.com/package/@homebridge-plugins/homebridge-sharkiq)
+[![npm](https://badgen.net/npm/v/@homebridge-plugins/homebridge-sharkiq?color=purple)](https://www.npmjs.com/package/@homebridge-plugins/homebridge-sharkiq)
 
 </span>
 
@@ -24,27 +25,27 @@ Run `npm install -g homebridge-sharkiq`
 ### Step 2.
 
 Configure Homebridge. The config file for SharkIQ should include:
+
 ```json
 {
-    "platforms": [
-        {
-            "name": "SharkIQ",
-            "platform": "SharkIQ",
-            "email": "[Shark Clean Account Email]",
-            "password": "[Shark Clean Account Password]",
-            "oAuthCode": "[Optional. Use for manually obtaining credentials]",
-            "vacuums": [
-                "[Shark Vacuum DSN]",
-                "..."
-            ],
-            "europe": false,
-            "invertDockedStatus": false,
-            "dockedUpdateInterval": 30000
-        }
-    ]
+  "platforms": [
+    {
+      "name": "SharkIQ",
+      "platform": "SharkIQ",
+      "email": "[Shark Clean Account Email]",
+      "password": "[Shark Clean Account Password]",
+      "oAuthCode": "[Optional. Use for manually obtaining credentials]",
+      "vacuums": [
+        "[Shark Vacuum DSN]",
+        "..."
+      ],
+      "europe": false,
+      "invertDockedStatus": false,
+      "dockedUpdateInterval": 30000
+    }
+  ]
 }
 ```
-
 
 # Important
 
@@ -67,12 +68,14 @@ The default interval between updating the docked status is 30 seconds (30000 ms)
 - Be able to turn on and off the vacuum
 - Set the power mode of the vacuum and change it while running
 - Sensor for if the vacuum is docked or not
-    - The sensor will display as "opened" when the vacuum is docked and "closed" when the vacuum is not docked
-    - Set `invertDockedStatus` to `true` to display as "closed" when the vacuum is docked and "opened" when the vacuum is not docked
+  - The sensor will display as "opened" when the vacuum is docked and "closed" when the vacuum is not docked
+  - Set `invertDockedStatus` to `true` to display as "closed" when the vacuum is docked and "opened" when the vacuum is not docked
 - Pause switch for pausing the vacuum while it's running
 
 ### OAuth Code Login Method
+
 The OAuth Code value is for creating and storing the login for the plugin. Here is how to sign in with this method.
+
 1. Run Homebridge with the latest plugin version.
 2. Open the Homebridge logs
 3. Open the URL in the console printed by homebridge-sharkiq. Safari will not work due to the way Safari handles the results of the login
@@ -89,4 +92,5 @@ The OAuth Code value is for creating and storing the login for the plugin. Here 
 Contributions would be very helpful to help this Homebridge plugin stay maintained and up to date. If you have any problems, please create an issue.
 
 ## Useful Links
+
 - [SharkIQ Python](https://github.com/JeffResc/sharkiq/)

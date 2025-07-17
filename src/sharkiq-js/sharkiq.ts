@@ -4,9 +4,9 @@ import type { AylaApi } from './ayla_api.js'
 
 import { Buffer, transcode } from 'node:buffer'
 
+import { safeJsonParse } from '../utils.js'
 import { global_vars } from './const.js'
 import { OperatingModes, PowerModes, Properties } from './properties.js'
-import { safeJsonParse } from '../utils.js'
 
 // Strip text from property name
 function _clean_property_name(raw_property_name: string): string {
@@ -187,7 +187,7 @@ class SharkIqVacuum {
         })
         const auth_header = await this.ayla_api.auth_header()
         const resp = await this.ayla_api.makeRequest('GET', `${url}?${params.toString()}`, null, auth_header)
-                try {
+        try {
           // Log raw response for debugging
           this.log.debug(`Raw API Response: ${resp.response}`)
           this.log.debug(`Response Status: ${resp.status}`)
@@ -230,7 +230,7 @@ class SharkIqVacuum {
       } else {
         const auth_header = await this.ayla_api.auth_header()
         const resp = await this.ayla_api.makeRequest('GET', url, null, auth_header)
-                try {
+        try {
           // Log raw response for debugging
           this.log.debug(`Raw API Response (full update): ${resp.response}`)
           this.log.debug(`Response Status: ${resp.status}`)

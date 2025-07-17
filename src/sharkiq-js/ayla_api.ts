@@ -114,7 +114,7 @@ class AylaApi {
     const refresh_data = { user: { refresh_token: this._refresh_token } }
     const url = `${this.europe ? global_vars.EU_LOGIN_URL : global_vars.LOGIN_URL}/users/refresh_token.json`
     try {
-            const resp = await this.makeRequest('POST', url, refresh_data, null)
+      const resp = await this.makeRequest('POST', url, refresh_data, null)
 
       // Use safe JSON parsing utility
       const parseResult = safeJsonParse(resp.response)
@@ -264,7 +264,7 @@ class AylaApi {
         } else {
           return await this.list_devices(attempt + 1)
         }
-            }
+      }
 
       // Use safe JSON parsing utility
       const parseResult = safeJsonParse(resp.response)
