@@ -2,17 +2,17 @@ name: Node Build
 
 on:
   push:
-    branches: [main]
+    branches: [latest]
   pull_request:
   workflow_dispatch:
 
 jobs:
   build_and_test:
-    uses: ./.github/workflows/nodejs-build-and-test.yml
+    uses: homebridge/.github/.github/workflows/nodejs-build-and-test.yml@latest
     with:
-      enable_coverage: true
+      enable_coverage: false
     secrets:
       token: ${{ secrets.GITHUB_TOKEN }}
   lint:
     needs: build_and_test
-    uses: ./.github/workflows/eslint.yml
+    uses: homebridge/.github/.github/workflows/eslint.yml@latest

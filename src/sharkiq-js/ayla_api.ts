@@ -16,7 +16,7 @@ interface APIResponse {
 }
 
 // New AylaApi object
-const get_ayla_api = function (auth_file_path: string, log: Logger, europe = false): AylaApi {
+function get_ayla_api(auth_file_path: string, log: Logger, europe = false): AylaApi {
   if (europe) {
     return new AylaApi(auth_file_path, global_vars.EU_SHARK_APP_ID, global_vars.EU_SHARK_APP_SECRET, log, europe)
   } else {

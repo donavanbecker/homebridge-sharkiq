@@ -1,35 +1,35 @@
-name: Node Release
+name: Release
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
-  workflow_dispatch:
+  release:
+    types: [published]
 
 jobs:
   build_and_test:
-    uses: ./.github/workflows/nodejs-build-and-test.yml
+    uses: homebridge/.github/.github/workflows/nodejs-build-and-test.yml@latest
     with:
-      enable_coverage: true
+      enable_coverage: false
     secrets:
       token: ${{ secrets.GITHUB_TOKEN }}
 
   publish:
     needs: build_and_test
-
-    if: ${{ github.repository == 'Bubba8291/homebridge-sharkiq' }}
-
-    uses: ./.github/workflows/npm-publish.yml
+    if: ${{ github.repository == 'homebridge-plugins/homebridge-sharkiq' }}
+    permissions:
+      id-token: write
+    uses: homebridge/.github/.github/workflows/npm-publish-esm.yml@latest
     secrets:
       npm_auth_token: ${{ secrets.npm_token }}
 
   github-releases-to-discord:
-    needs: publish
-
-    if: ${{ github.repository == 'Bubba8291/homebridge-sharkiq' }}
-
-    uses: ./.github/workflows/discord-webhooks.yml
+    name: Discord Webhooks
+    needs: [build_and_test,publish]
+    if: ${{ github.repository == 'homebridge-plugins/homebridge-sharkiq' }}
+    uses: homebridge/.github/.github/workflows/discord-webhooks.yml@latest
     with:
-      title: "SharkIQ"
+      title: "Roomba Release"
+      description: |
+        Version `v${{ needs.publish.outputs.NPM_VERSION }}`
+      url: "https://github.com/homebridge-plugins/homebridge-sharkiq/releases/tag/v${{ needs.publish.outputs.NPM_VERSION }}"
     secrets:
-      DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+      DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL_LATEST }}
