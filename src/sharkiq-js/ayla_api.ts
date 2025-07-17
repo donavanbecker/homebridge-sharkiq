@@ -5,7 +5,7 @@ import type { AuthData } from '../type.js'
 import fetch from 'node-fetch'
 
 import { getAuthData, setAuthData } from '../config.js'
-import { addSeconds, isValidDate, subtractSeconds } from '../utils.js'
+import { addSeconds, isValidDate, safeJsonParse, subtractSeconds } from '../utils.js'
 import { global_vars } from './const.js'
 import { SharkIqVacuum } from './sharkiq.js'
 
@@ -114,8 +114,17 @@ class AylaApi {
     const refresh_data = { user: { refresh_token: this._refresh_token } }
     const url = `${this.europe ? global_vars.EU_LOGIN_URL : global_vars.LOGIN_URL}/users/refresh_token.json`
     try {
-      const resp = await this.makeRequest('POST', url, refresh_data, null)
-      const jsonResponse = JSON.parse(resp.response)
+            const resp = await this.makeRequest('POST', url, refresh_data, null)
+
+      // Use safe JSON parsing utility
+      const parseResult = safeJsonParse(resp.response)
+      if (!parseResult.success) {
+        this.log.error('Error parsing JSON response when refreshing auth token')
+        this.log.debug(`Parse Error: ${parseResult.error}`)
+        return false
+      }
+
+      const jsonResponse = parseResult.data
       const status = resp.status
       if (status !== 200) {
         this.log.error(`API Error: Unable to refresh auth token. Status Code ${status}`)
@@ -255,8 +264,17 @@ class AylaApi {
         } else {
           return await this.list_devices(attempt + 1)
         }
+            }
+
+      // Use safe JSON parsing utility
+      const parseResult = safeJsonParse(resp.response)
+      if (!parseResult.success) {
+        this.log.error('Error parsing JSON response when listing devices')
+        this.log.debug(`Parse Error: ${parseResult.error}`)
+        return []
       }
-      const devices = JSON.parse(resp.response)
+
+      const devices = parseResult.data
       const d = devices.map((device: { device: object }) => {
         return device.device
       })
