@@ -188,16 +188,14 @@ class SharkIqVacuum {
         const auth_header = await this.ayla_api.auth_header()
         const resp = await this.ayla_api.makeRequest('GET', `${url}?${params.toString()}`, null, auth_header)
         try {
-          // Log raw response for debugging
-          this.log.debug(`Raw API Response: ${resp.response}`)
-          this.log.debug(`Response Status: ${resp.status}`)
-          this.log.debug(`Response OK: ${resp.ok}`)
-
           // Use safe JSON parsing utility
           const parseResult = safeJsonParse(resp.response)
           if (!parseResult.success) {
             this.log.warn(`Error parsing JSON response for properties: ${property_list.join(', ')}`)
             this.log.debug(`Parse Error: ${parseResult.error}`)
+            this.log.debug(`Raw API Response: ${resp.response}`)
+            this.log.debug(`Response Status: ${resp.status}`)
+            this.log.debug(`Response OK: ${resp.ok}`)
             return ERROR_DELAY
           }
 
@@ -208,6 +206,9 @@ class SharkIqVacuum {
             return TIMEOUT_DELAY
           } else if (resp.ok !== true) {
             this.log.warn('Error getting property values', property_list.join(', '))
+            this.log.debug(`Raw API Response: ${resp.response}`)
+            this.log.debug(`Response Status: ${resp.status}`)
+            this.log.debug(`Response OK: ${resp.ok}`)
             if (properties.error !== undefined) {
               this.log.debug(`Error Message: ${JSON.stringify(properties.error)}`)
             }
@@ -231,16 +232,14 @@ class SharkIqVacuum {
         const auth_header = await this.ayla_api.auth_header()
         const resp = await this.ayla_api.makeRequest('GET', url, null, auth_header)
         try {
-          // Log raw response for debugging
-          this.log.debug(`Raw API Response (full update): ${resp.response}`)
-          this.log.debug(`Response Status: ${resp.status}`)
-          this.log.debug(`Response OK: ${resp.ok}`)
-
           // Use safe JSON parsing utility
           const parseResult = safeJsonParse(resp.response)
           if (!parseResult.success) {
             this.log.warn('Error parsing JSON response for full property update')
             this.log.debug(`Parse Error: ${parseResult.error}`)
+            this.log.debug(`Raw API Response (full update): ${resp.response}`)
+            this.log.debug(`Response Status: ${resp.status}`)
+            this.log.debug(`Response OK: ${resp.ok}`)
             return ERROR_DELAY
           }
 
@@ -251,6 +250,9 @@ class SharkIqVacuum {
             return TIMEOUT_DELAY
           } else if (resp.ok !== true) {
             this.log.warn('Error getting property values.')
+            this.log.debug(`Raw API Response (full update): ${resp.response}`)
+            this.log.debug(`Response Status: ${resp.status}`)
+            this.log.debug(`Response OK: ${resp.ok}`)
             if (properties.error !== undefined) {
               this.log.debug(`Error Message: ${JSON.stringify(properties.error)}`)
             }
