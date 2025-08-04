@@ -62,10 +62,16 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
     const oAuthCode = this.config.oAuthCode || ''
     const email = this.config.email || ''
     const password = this.config.password || ''
-    if (!email || typeof email !== 'string' || !password || typeof password !== 'string') {
-      this.log.warn('Email and password not present in the config. Using OAuth code login method instead.')
-      this.log.info('Please provide email and password in the config if you want to use email/password login method.')
-    } else if (email !== '' && password === '') {
+    // Log which login method is being used based on user configuration
+    // Email/password takes precedence if both are provided (matches Login class logic)
+    if (email && typeof email === 'string' && email.trim() !== '' && 
+        password && typeof password === 'string' && password.trim() !== '') {
+      this.log.info('Valid email and password present, using email and password login method.')
+    } else if (oAuthCode && typeof oAuthCode === 'string' && oAuthCode.trim() !== '') {
+      this.log.info('Valid OAuth code present, using OAuth login method.')
+    }
+    
+    if (email !== '' && password === '') {
       return Promise.reject(new Error('Password must be present in the config if email is provided.'))
     } else if (email === '' && password !== '') {
       return Promise.reject(new Error('Email must be present in the config if password is provided.'))
