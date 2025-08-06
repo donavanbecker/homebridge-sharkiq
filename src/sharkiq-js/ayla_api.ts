@@ -37,7 +37,7 @@ class AylaApi {
   europe: boolean
 
   // Simple Ayla Networks API wrapper
-  constructor(auth_file_path, app_id, app_secret, log, europe = false) {
+  constructor(auth_file_path: string, app_id: string, app_secret: string, log: Logger, europe = false) {
     this._auth_file_path = auth_file_path
     this._access_token = null
     this._refresh_token = null
@@ -78,7 +78,8 @@ class AylaApi {
         response: responseText,
         ok: response.ok,
       }
-    } catch {
+    } catch (error) {
+      this.log.error('Request failed:', error)
       return {
         status: 500,
         response: '',
@@ -290,7 +291,7 @@ class AylaApi {
   async get_devices(update = true): Promise<SharkIqVacuum[]> {
     try {
       const d = await this.list_devices()
-      const devices = d.map((device: any) => {
+      const devices = d.map((device: object) => {
         return new SharkIqVacuum(this, device, this.log, this.europe)
       })
       if (update) {
