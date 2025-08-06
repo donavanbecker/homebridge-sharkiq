@@ -8,6 +8,7 @@ import { Login } from './login.js'
 import { SharkIQAccessory } from './platformAccessory.js'
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
 import { get_ayla_api } from './sharkiq-js/ayla_api.js'
+import { TIMEOUTS } from './constants.js'
 import { global_vars } from './sharkiq-js/const.js'
 
 // SharkIQPlatform Main Class
@@ -101,7 +102,7 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
     const unusedDeviceAccessories = this.accessories
 
     const invertDockedStatus = this.config.invertDockedStatus || false
-    const dockedUpdateInterval = this.config.dockedUpdateInterval || 5000
+    const dockedUpdateInterval = this.config.dockedUpdateInterval || TIMEOUTS.DEFAULT_DOCKED_UPDATE_INTERVAL
     this.vacuumDevices.forEach((vacuumDevice) => {
       const uuid = this.api.hap.uuid.generate(vacuumDevice._dsn.toString())
       let accessory = unusedDeviceAccessories.find(accessory => accessory.UUID === uuid)

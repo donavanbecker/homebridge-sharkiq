@@ -1,10 +1,12 @@
 import type { Logger } from 'homebridge'
 
 import type { AuthData } from '../type.js'
+import type { DeviceDct } from './sharkiq.js'
 
 import fetch from 'node-fetch'
 
 import { getAuthData, setAuthData } from '../config.js'
+import { TIMEOUTS } from '../constants.js'
 import { addSeconds, isValidDate, safeJsonParse, subtractSeconds } from '../utils.js'
 import { global_vars } from './const.js'
 import { SharkIqVacuum } from './sharkiq.js'
@@ -36,7 +38,7 @@ class AylaApi {
   europe: boolean
 
   // Simple Ayla Networks API wrapper
-  constructor(auth_file_path, app_id, app_secret, log, europe = false) {
+  constructor(auth_file_path: string, app_id: string, app_secret: string, log: Logger, europe = false) {
     this._auth_file_path = auth_file_path
     this._access_token = null
     this._refresh_token = null
@@ -77,7 +79,8 @@ class AylaApi {
         response: responseText,
         ok: response.ok,
       }
-    } catch {
+    } catch (error) {
+      this.log.error('Request failed:', error)
       return {
         status: 500,
         response: '',
@@ -201,7 +204,7 @@ class AylaApi {
       return true
     }
     const dateNow = new Date()
-    return (dateNow > subtractSeconds(auth_expiration, 600)) === true
+    return (dateNow > subtractSeconds(auth_expiration, TIMEOUTS.TOKEN_EXPIRATION_BUFFER)) === true
   }
 
   // Check if auth is valid and renew if expired.
@@ -251,7 +254,7 @@ class AylaApi {
   }
 
   // List device objects
-  async list_devices(attempt = 0): Promise<object[]> {
+  async list_devices(attempt = 0): Promise<DeviceDct[]> {
     const url = `${this.europe ? global_vars.EU_DEVICE_URL : global_vars.DEVICE_URL}/apiv1/devices.json`
     try {
       const auth_header = await this.auth_header()
@@ -275,7 +278,7 @@ class AylaApi {
       }
 
       const devices = parseResult.data
-      const d = devices.map((device: { device: object }) => {
+      const d = devices.map((device: { device: DeviceDct }) => {
         return device.device
       })
       return d
@@ -289,7 +292,7 @@ class AylaApi {
   async get_devices(update = true): Promise<SharkIqVacuum[]> {
     try {
       const d = await this.list_devices()
-      const devices = d.map((device: any) => {
+      const devices = d.map((device: DeviceDct) => {
         return new SharkIqVacuum(this, device, this.log, this.europe)
       })
       if (update) {
