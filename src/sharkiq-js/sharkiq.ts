@@ -204,14 +204,14 @@ class SharkIqVacuum {
             this.log.debug('API Error: Too many requests')
             this.log.debug('Waiting an extra 30 seconds before retrying...')
             return TIMEOUT_DELAY
+          } else if (resp.status === 500) {
+            // Handle 500 server errors gracefully
+            this.log.error(`Server error (500) - API temporarily unavailable. Status: ${resp.status}, Error: ${properties.error ? JSON.stringify(properties.error) : 'Internal server error'}`)
+            return ERROR_DELAY
           } else if (resp.ok !== true) {
             this.log.warn('Error getting property values', property_list.join(', '))
             this.log.debug(`Raw API Response: ${resp.response}`)
-            this.log.debug(`Response Status: ${resp.status}`)
-            this.log.debug(`Response OK: ${resp.ok}`)
-            if (properties.error !== undefined) {
-              this.log.debug(`Error Message: ${JSON.stringify(properties.error)}`)
-            }
+            this.log.error(`API Error - Status: ${resp.status}, Error: ${properties.error ? JSON.stringify(properties.error) : 'Unknown error'}`)
             const status = await this.ayla_api.attempt_refresh(attempt)
             if (!status && attempt === 1) {
               return ERROR_DELAY
@@ -248,14 +248,14 @@ class SharkIqVacuum {
             this.log.debug('API Error: Too many requests')
             this.log.debug('Waiting an extra 30 seconds before retrying...')
             return TIMEOUT_DELAY
+          } else if (resp.status === 500) {
+            // Handle 500 server errors gracefully
+            this.log.error(`Server error (500) - API temporarily unavailable. Status: ${resp.status}, Error: ${properties.error ? JSON.stringify(properties.error) : 'Internal server error'}`)
+            return ERROR_DELAY
           } else if (resp.ok !== true) {
             this.log.warn('Error getting property values.')
             this.log.debug(`Raw API Response (full update): ${resp.response}`)
-            this.log.debug(`Response Status: ${resp.status}`)
-            this.log.debug(`Response OK: ${resp.ok}`)
-            if (properties.error !== undefined) {
-              this.log.debug(`Error Message: ${JSON.stringify(properties.error)}`)
-            }
+            this.log.error(`API Error - Status: ${resp.status}, Error: ${properties.error ? JSON.stringify(properties.error) : 'Unknown error'}`)
             const status = await this.ayla_api.attempt_refresh(attempt)
             if (!status && attempt === 1) {
               return ERROR_DELAY
