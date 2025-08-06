@@ -1,14 +1,15 @@
 import type { Logger } from 'homebridge'
 
 import type { AuthData } from '../type.js'
+import type { DeviceDct } from './sharkiq.js'
 
 import fetch from 'node-fetch'
 
 import { getAuthData, setAuthData } from '../config.js'
-import { addSeconds, isValidDate, safeJsonParse, subtractSeconds } from '../utils.js'
 import { TIMEOUTS } from '../constants.js'
+import { addSeconds, isValidDate, safeJsonParse, subtractSeconds } from '../utils.js'
 import { global_vars } from './const.js'
-import { SharkIqVacuum, DeviceDct } from './sharkiq.js'
+import { SharkIqVacuum } from './sharkiq.js'
 
 interface APIResponse {
   status: number
