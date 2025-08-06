@@ -4,6 +4,7 @@ import type { SharkIQPlatform } from './platform.js'
 import type { SharkIqVacuum } from './sharkiq-js/sharkiq.js'
 
 import { OperatingModes, PowerModes, Properties } from './sharkiq-js/sharkiq.js'
+import { VACUUM_SPEEDS, TIMEOUTS } from './constants.js'
 
 export class SharkIQAccessory {
   private service: Service
@@ -37,9 +38,9 @@ export class SharkIQAccessory {
     // Vacuum Power (Eco, Normal, Max)
     this.service.getCharacteristic(this.platform.Characteristic.RotationSpeed)
       .setProps({
-        minStep: 30,
-        minValue: 0,
-        maxValue: 90,
+        minStep: VACUUM_SPEEDS.ECO,
+        minValue: VACUUM_SPEEDS.OFF,
+        maxValue: VACUUM_SPEEDS.MAX,
       })
       .onSet(this.setFanSpeed.bind(this))
       .onGet(this.getFanSpeed.bind(this))
@@ -138,11 +139,11 @@ export class SharkIQAccessory {
     this.service.updateCharacteristic(this.platform.Characteristic.Active, vacuumActive)
     if (vacuumActive) {
       if (power_mode === PowerModes.MAX) {
-        this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, 90)
+        this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, VACUUM_SPEEDS.MAX)
       } else if (power_mode === PowerModes.ECO) {
-        this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, 30)
+        this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, VACUUM_SPEEDS.ECO)
       } else {
-        this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, 60)
+        this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, VACUUM_SPEEDS.NORMAL)
       }
       if (mode === OperatingModes.STOP) {
         this.vacuumPausedService.updateCharacteristic(this.platform.Characteristic.On, true)
@@ -150,7 +151,7 @@ export class SharkIQAccessory {
         this.vacuumPausedService.updateCharacteristic(this.platform.Characteristic.On, false)
       }
     } else {
-      this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, 0)
+      this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, VACUUM_SPEEDS.OFF)
     }
     this.dockedStatusService.updateCharacteristic(this.platform.Characteristic.ContactSensorState, vacuumDocked)
 
@@ -207,7 +208,7 @@ export class SharkIQAccessory {
     } else {
       setTimeout(() => {
         this.vacuumPausedService.updateCharacteristic(this.platform.Characteristic.On, false)
-      }, 100)
+      }, TIMEOUTS.PAUSED_UPDATE_DELAY)
     }
   }
 
@@ -248,14 +249,14 @@ export class SharkIQAccessory {
     if (vacuumActive) {
       const power_mode = this.device.power_mode()
       if (power_mode === PowerModes.MAX) {
-        return 90
+        return VACUUM_SPEEDS.MAX
       } else if (power_mode === PowerModes.ECO) {
-        return 30
+        return VACUUM_SPEEDS.ECO
       } else {
-        return 60
+        return VACUUM_SPEEDS.NORMAL
       }
     } else {
-      return 0
+      return VACUUM_SPEEDS.OFF
     }
   }
 
@@ -264,11 +265,11 @@ export class SharkIQAccessory {
     this.log.debug('Triggering SET Fan Speed. Value:', value)
 
     let power_mode = PowerModes.NORMAL
-    if (value === 30) {
+    if (value === VACUUM_SPEEDS.ECO) {
       power_mode = PowerModes.ECO
-    } else if (value === 90) {
+    } else if (value === VACUUM_SPEEDS.MAX) {
       power_mode = PowerModes.MAX
-    } else if (value === 0) {
+    } else if (value === VACUUM_SPEEDS.OFF) {
       await this.device.cancel_clean()
         .catch(() => {
           this.log.debug('Promise Rejected with cancel cleaning update.')

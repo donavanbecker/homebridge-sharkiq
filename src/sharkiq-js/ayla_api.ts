@@ -6,6 +6,7 @@ import fetch from 'node-fetch'
 
 import { getAuthData, setAuthData } from '../config.js'
 import { addSeconds, isValidDate, safeJsonParse, subtractSeconds } from '../utils.js'
+import { TIMEOUTS } from '../constants.js'
 import { global_vars } from './const.js'
 import { SharkIqVacuum } from './sharkiq.js'
 
@@ -201,7 +202,7 @@ class AylaApi {
       return true
     }
     const dateNow = new Date()
-    return (dateNow > subtractSeconds(auth_expiration, 600)) === true
+    return (dateNow > subtractSeconds(auth_expiration, TIMEOUTS.TOKEN_EXPIRATION_BUFFER)) === true
   }
 
   // Check if auth is valid and renew if expired.

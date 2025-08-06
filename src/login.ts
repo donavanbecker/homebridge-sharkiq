@@ -12,6 +12,7 @@ import StealthPlugin from 'puppeteer-extra-plugin-stealth'
 import { generateURL, getAuthData, getOAuthData, removeFile, setAuthData } from './config.js'
 import { global_vars } from './sharkiq-js/const.js'
 import { addSeconds } from './utils.js'
+import { TIMEOUTS } from './constants.js'
 
 export class Login {
   public log: Logger
@@ -119,7 +120,7 @@ export class Login {
           this.log.debug('Retrieving login response...')
           if (!response.ok() && ![301, 302].includes(response.status())) {
             this.log.debug('Error logging in: HTTP', response.status())
-            await setTimeout(1000)
+            await setTimeout(TIMEOUTS.LOGIN_DELAY)
             await page.screenshot({ path: 'login_error.png' })
             const errorMessages = await page.$$eval('span[class="ulp-input-error-message"]', el => el.map(x => x.textContent?.trim() || ''))
             const promptAlert = await page.$('div[id="prompt-alert"]')
@@ -152,17 +153,17 @@ export class Login {
       if (headless) {
         this.log.debug('Inputing login info...')
         await page.waitForSelector('button[name="action"]')
-        await setTimeout(1000)
+        await setTimeout(TIMEOUTS.LOGIN_DELAY)
 
         await page.waitForSelector('input[inputMode="email"]')
         await page.type('input[inputMode="email"]', email)
 
-        await setTimeout(1000)
+        await setTimeout(TIMEOUTS.LOGIN_DELAY)
         await page.type('input[type="password"]', password)
         let verified = false
         let attempts = 0
         while (!verified) {
-          await setTimeout(5000)
+          await setTimeout(TIMEOUTS.CAPTCHA_DELAY)
           const captchaInput = await page.$('input[name="captcha"]')
           const needsCaptcha = await captchaInput?.$eval('input[name="captcha"]', el => el.value === '')
           if (!needsCaptcha) {
@@ -182,7 +183,7 @@ export class Login {
           }
         }
         await page.click('button[name="action"]')
-        await setTimeout(5000)
+        await setTimeout(TIMEOUTS.CAPTCHA_DELAY)
       }
     } catch (error) {
       return Promise.reject(new Error(`Error: ${error}`))
