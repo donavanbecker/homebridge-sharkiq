@@ -74,6 +74,15 @@ export class SharkIQAccessory {
     })
   }
 
+  // Helper method to calculate vacuum docked status based on inversion setting
+  private calculateDockedStatus(docked_status: number): boolean {
+    if (!this.invertDockedStatus) {
+      return docked_status === 1
+    } else {
+      return docked_status !== 1
+    }
+  }
+
   // Retrieve vacuum states interval function
   async retrieveVacuumStateInterval(): Promise<void> {
     setInterval(async () => {
@@ -88,12 +97,7 @@ export class SharkIQAccessory {
     await this.device.update(Properties.DOCKED_STATUS)
 
     const docked_status = this.device.docked_status()
-    let vacuumDocked = false
-    if (!this.invertDockedStatus) {
-      vacuumDocked = docked_status === 1
-    } else {
-      vacuumDocked = docked_status !== 1
-    }
+    const vacuumDocked = this.calculateDockedStatus(docked_status)
 
     return vacuumDocked
   }
@@ -127,11 +131,7 @@ export class SharkIQAccessory {
       })
 
     const docked_status = this.device.docked_status()
-    if (!this.invertDockedStatus) {
-      vacuumDocked = docked_status === 1
-    } else {
-      vacuumDocked = docked_status !== 1
-    }
+    vacuumDocked = this.calculateDockedStatus(docked_status)
     const power_mode = this.device.power_mode()
     const mode = this.device.operating_mode()
     const vacuumActive = mode === OperatingModes.START || mode === OperatingModes.STOP
