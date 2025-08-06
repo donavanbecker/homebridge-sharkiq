@@ -5,6 +5,7 @@ import type { SharkIqVacuum } from './sharkiq-js/sharkiq.js'
 
 import { OperatingModes, PowerModes, Properties } from './sharkiq-js/sharkiq.js'
 import { VACUUM_SPEEDS, TIMEOUTS } from './constants.js'
+import { createPromiseRejectionHandler } from './errorHandling.js'
 
 export class SharkIQAccessory {
   private service: Service
@@ -68,7 +69,7 @@ export class SharkIQAccessory {
     this.retrieveVacuumStates().then(() => {
       this.retrieveVacuumStateInterval()
     }).catch(() => {
-      this.log.debug('Promise Rejected with first interval update.')
+      createPromiseRejectionHandler(this.log, 'first interval update')()
       this.retrieveVacuumStateInterval()
     })
   }
@@ -77,9 +78,7 @@ export class SharkIQAccessory {
   async retrieveVacuumStateInterval(): Promise<void> {
     setInterval(async () => {
       await this.retrieveVacuumStates()
-        .catch(() => {
-          this.log.debug('Promise Rejected with interval update.')
-        })
+        .catch(createPromiseRejectionHandler(this.log, 'interval update'))
     }, this.dockedUpdateInterval + this.dockedDelay)
   }
 
@@ -196,14 +195,10 @@ export class SharkIQAccessory {
     if (mode === OperatingModes.START || mode === OperatingModes.STOP) {
       if (value) {
         await this.device.set_operating_mode(OperatingModes.STOP)
-          .catch(() => {
-            this.log.debug('Promise Rejected with setting operating mode.')
-          })
+          .catch(createPromiseRejectionHandler(this.log, 'setting operating mode'))
       } else {
         await this.device.set_operating_mode(OperatingModes.START)
-          .catch(() => {
-            this.log.debug('Promise Rejected with setting operating mode.')
-          })
+          .catch(createPromiseRejectionHandler(this.log, 'setting operating mode'))
       }
     } else {
       setTimeout(() => {
@@ -232,9 +227,7 @@ export class SharkIQAccessory {
       const mode = this.device.operating_mode()
       if (mode === OperatingModes.START || mode === OperatingModes.STOP) {
         await this.setFanSpeed(0)
-          .catch(() => {
-            this.log.debug('Promise Rejected with setting fan speed.')
-          })
+          .catch(createPromiseRejectionHandler(this.log, 'setting fan speed'))
       }
     }
   }
@@ -271,9 +264,7 @@ export class SharkIQAccessory {
       power_mode = PowerModes.MAX
     } else if (value === VACUUM_SPEEDS.OFF) {
       await this.device.cancel_clean()
-        .catch(() => {
-          this.log.debug('Promise Rejected with cancel cleaning update.')
-        })
+        .catch(createPromiseRejectionHandler(this.log, 'cancel cleaning update'))
       this.service.updateCharacteristic(this.platform.Characteristic.Active, this.platform.Characteristic.Active.INACTIVE)
       this.vacuumPausedService.updateCharacteristic(this.platform.Characteristic.On, false)
       return
@@ -287,16 +278,12 @@ export class SharkIQAccessory {
       this.vacuumPausedService.updateCharacteristic(this.platform.Characteristic.On, false)
     }
     await this.device.set_property_value(Properties.POWER_MODE, power_mode)
-      .catch(() => {
-        this.log.debug('Promise Rejected with powermode update.')
-      })
+      .catch(createPromiseRejectionHandler(this.log, 'powermode update'))
     const mode = this.device.operating_mode()
     if (mode !== OperatingModes.START && mode !== OperatingModes.STOP) {
       this.service.updateCharacteristic(this.platform.Characteristic.Active, this.platform.Characteristic.Active.ACTIVE)
       await this.device.clean_rooms([])
-        .catch(() => {
-          this.log.debug('Promise Rejected with start cleaning update.')
-        })
+        .catch(createPromiseRejectionHandler(this.log, 'start cleaning update'))
     }
   }
 }
