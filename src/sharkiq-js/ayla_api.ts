@@ -8,7 +8,7 @@ import { getAuthData, setAuthData } from '../config.js'
 import { addSeconds, isValidDate, safeJsonParse, subtractSeconds } from '../utils.js'
 import { TIMEOUTS } from '../constants.js'
 import { global_vars } from './const.js'
-import { SharkIqVacuum } from './sharkiq.js'
+import { SharkIqVacuum, DeviceDct } from './sharkiq.js'
 
 interface APIResponse {
   status: number
@@ -253,7 +253,7 @@ class AylaApi {
   }
 
   // List device objects
-  async list_devices(attempt = 0): Promise<object[]> {
+  async list_devices(attempt = 0): Promise<DeviceDct[]> {
     const url = `${this.europe ? global_vars.EU_DEVICE_URL : global_vars.DEVICE_URL}/apiv1/devices.json`
     try {
       const auth_header = await this.auth_header()
@@ -277,7 +277,7 @@ class AylaApi {
       }
 
       const devices = parseResult.data
-      const d = devices.map((device: { device: object }) => {
+      const d = devices.map((device: { device: DeviceDct }) => {
         return device.device
       })
       return d
@@ -291,7 +291,7 @@ class AylaApi {
   async get_devices(update = true): Promise<SharkIqVacuum[]> {
     try {
       const d = await this.list_devices()
-      const devices = d.map((device: object) => {
+      const devices = d.map((device: DeviceDct) => {
         return new SharkIqVacuum(this, device, this.log, this.europe)
       })
       if (update) {
