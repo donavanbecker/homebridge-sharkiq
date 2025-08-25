@@ -149,13 +149,21 @@ class SharkIqVacuum {
       const auth_header = await this.ayla_api.auth_header()
       const resp = await this.ayla_api.makeRequest('POST', end_point, data, auth_header)
       if (resp.ok !== true) {
-        this.log.warn('Error setting property value:', property_name, value)
-        this.log.debug(`API Error: ${resp.response}`)
-        const status = await this.ayla_api.attempt_refresh(attempt)
-        if (!status && attempt === 1) {
-          return
+        // Check if this is an authentication error (401) that requires token refresh
+        if (resp.status === 401) {
+          this.log.debug(`Authentication error setting property ${property_name}, attempting token refresh`)
+          const status = await this.ayla_api.attempt_refresh(attempt, false)
+          if (!status && attempt === 1) {
+            this.log.warn(`Failed to set property ${property_name} after authentication retry`)
+            return
+          } else {
+            await this.set_property_value(property_name, value, attempt + 1)
+            return
+          }
         } else {
-          await this.set_property_value(property_name, value, attempt + 1)
+          // For non-authentication errors, log as debug since vacuum may still function
+          this.log.debug(`Unable to set property ${property_name} to ${value} (Status: ${resp.status}). This may be normal depending on device state.`)
+          this.log.debug(`API Response: ${resp.response}`)
           return
         }
       }

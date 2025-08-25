@@ -227,17 +227,29 @@ class AylaApi {
   }
 
   // Attempt to refresh the access token
-  async attempt_refresh(attempt: number): Promise<boolean> {
+  async attempt_refresh(attempt: number, isCritical = true): Promise<boolean> {
     if (attempt === 1) {
-      this.log.error(this.exit_error_message)
+      if (isCritical) {
+        this.log.error(this.exit_error_message)
+      } else {
+        this.log.debug('Multiple authentication failures occurred. Token refresh may be needed.')
+      }
       return false
     }
-    this.log.info('Attempting to refresh access token.')
+    if (isCritical) {
+      this.log.info('Attempting to refresh access token.')
+    } else {
+      this.log.debug('Attempting to refresh access token for failed operation.')
+    }
     const status = await this.refresh_auth()
     if (!status) {
-      this.log.error('Refreshing access token failed. Please check your auth file and delete it to recreate it if needed.')
-      this.log.info('The auth file is located at:', this._auth_file_path)
-      this.log.error(this.exit_error_message)
+      if (isCritical) {
+        this.log.error('Refreshing access token failed. Please check your auth file and delete it to recreate it if needed.')
+        this.log.info('The auth file is located at:', this._auth_file_path)
+        this.log.error(this.exit_error_message)
+      } else {
+        this.log.debug('Token refresh failed for non-critical operation. Core functionality should continue working.')
+      }
       return false
     }
     return true
