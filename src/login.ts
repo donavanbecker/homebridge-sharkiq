@@ -69,6 +69,16 @@ export class Login {
       } else {
         if (platform === 'linux' && architecure === 'arm64') {
           this.log.warn(`${platform} ${architecure} architecture does not support automatic login. Please use OAuth code login method.`)
+          if (this.oAuthCode !== '') {
+            try {
+              const ouath_data = await getOAuthData(this.oauth_file)
+              await this.loginCallback(this.oAuthCode, ouath_data)
+              return
+            } catch (error) {
+              this.log.warn('OAuth data not found with OAuth code set. Please clear the OAuth code and try again.')
+              return Promise.reject(error)
+            }
+          }
           const url = await generateURL(this.oauth_file)
           return Promise.reject(new Error(`Please login to Shark using the following URL: ${url}`))
         }
