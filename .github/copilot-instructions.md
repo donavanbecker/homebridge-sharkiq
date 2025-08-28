@@ -4,6 +4,40 @@ homebridge-sharkiq is a Homebridge plugin written in TypeScript that enables con
 
 Always reference these instructions first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.
 
+## Git Branch and PR Targeting Strategy
+
+### Branch Selection for Pull Requests
+When creating pull requests, always follow this priority order:
+
+1. **Check for Beta Branches First**: Use `git branch -r | grep origin/beta-` or GitHub API to check for branches that start with "beta-"
+2. **Target Beta Branch**: If any beta branches exist, target the most recent beta branch (e.g., `beta-1.4.1`)
+3. **Fallback to Latest**: If no beta branches exist, target the `latest` branch
+4. **Never target main/master**: This repository uses `latest` as the primary development branch, not main/master
+
+### Implementation Steps
+```bash
+# Method 1: Check for beta branches using git (after fetching)
+git fetch origin
+git branch -r | grep "origin/beta-" | sort -V | tail -1
+
+# Method 2: Use GitHub API to list branches (more reliable)
+# Use github-mcp-server-list_branches to see all available branches
+
+# If beta branch found (e.g., beta-1.4.1), use it as base:
+git checkout -b feature/your-change origin/beta-1.4.1
+
+# If no beta branch found, use latest:
+git checkout -b feature/your-change origin/latest
+```
+
+### Branch Verification
+Always verify you're targeting the correct branch before making changes:
+- Run `git status` to confirm current branch
+- Use `github-mcp-server-list_branches` tool to see all available branches
+- Run `git fetch origin && git branch -r` to see all available remote branches  
+- Prioritize beta branches over latest for all development work
+- Current available branches include: `beta-1.4.1`, `latest`, `copilot/fix-56`
+
 ## Working Effectively
 
 ### Initial Setup
