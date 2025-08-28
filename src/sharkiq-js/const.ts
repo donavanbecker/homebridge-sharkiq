@@ -13,11 +13,20 @@ const global_vars = {
     SCOPES: 'openid profile email offline_access read:users read:current_user read:user_idp_tokens',
     FILE: '.sharkiq_oauth.json',
   },
+  EU_OAUTH: {
+    CLIENT_ID: 'rKDx9O18dBrY3eoJMTkRiBZHDvd9Mx1I',
+    AUTH_URL: 'https://logineu.sharkninja.com/authorize',
+    TOKEN_URL: 'https://logineu.sharkninja.com/oauth/token',
+    REDIRECT_URI: 'com.sharkninja.shark://login.sharkninja.com/ios/com.sharkninja.shark/callback',
+    AUTH0_CLIENT: 'eyJ2ZXJzaW9uIjoiMi42LjAiLCJuYW1lIjoiQXV0aDAuc3dpZnQiLCJlbnI6eyJpVCI6IjE3LjYiLCJzd2lmdCI6IjUueCJ9fQ==',
+    SCOPES: 'openid profile email offline_access read:users read:current_user read:user_idp_tokens',
+    FILE: '.sharkiq_oauth.json',
+  },
   FILE: '.sharkiq.json',
   EU_DEVICE_URL: 'https://ads-eu.aylanetworks.com',
   EU_LOGIN_URL: 'https://user-field-eu.aylanetworks.com',
-  EU_SHARK_APP_ID: 'Shark-Android-EUField-Fw-id',
-  EU_SHARK_APP_SECRET: 'Shark-Android-EUField-s-zTykblGJujGcSSTaJaeE4PESI',
+  EU_SHARK_APP_ID: 'android_shark_prod-lg-id',
+  EU_SHARK_APP_SECRET: 'android_shark_prod-xuf9mlHOo0p3Ty5bboFROSyRBlE',
 }
 
 export { global_vars }
