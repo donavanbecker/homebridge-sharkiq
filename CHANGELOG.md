@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/)
 
+## [1.4.1] (TBD)
+
+### What's Changed
+- Fix ARM64 OAuth code handling for users with both email/password and OAuth code [#54](https://github.com/homebridge-plugins/homebridge-sharkiq/issues/54)
+
 ## [1.4.0](https://github.com/homebridge-plugins/homebridge-sharkiq/releases/tag/v1.4.0) (2025-07-17)
 
 ### What's Changes
