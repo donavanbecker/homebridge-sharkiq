@@ -4,6 +4,86 @@ homebridge-sharkiq is a Homebridge plugin written in TypeScript that enables con
 
 Always reference these instructions first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.
 
+## Git Branch and PR Targeting Strategy
+
+### Label-Based Workflow Requirements
+**IMPORTANT**: Before assigning any issue to Copilot, ensure the issue has exactly one of these labels:
+- `patch` - Bug fixes, security updates, documentation fixes (increments patch version: 1.4.0 → 1.4.1)
+- `minor` - New features, enhancements, non-breaking changes (increments minor version: 1.4.0 → 1.5.0)
+- `major` - Breaking changes, API changes, major refactors (increments major version: 1.4.0 → 2.0.0)
+
+Without these labels, Copilot cannot determine the appropriate version for beta branch creation.
+
+### Branch Selection for Pull Requests
+When creating pull requests, always follow this priority order:
+
+1. **Check for Beta Branches First**: Use `git branch -r | grep origin/beta-` or GitHub API to check for branches that start with "beta-"
+2. **Target Existing Beta Branch**: If any beta branches exist, target the most recent beta branch (e.g., `beta-1.4.1`)
+3. **Create New Beta Branch**: If no beta branches exist, create one based on the issue labels and current version
+4. **Never target main/master or latest directly**: Always work through beta branches for development
+
+### Beta Branch Creation Strategy
+When no beta branches exist, automatically create one using this logic:
+
+```bash
+# Step 1: Get current version from package.json
+CURRENT_VERSION=$(node -p "require('./package.json').version")
+
+# Step 2: Check issue labels to determine version bump
+# patch: 1.4.0 → 1.4.1
+# minor: 1.4.0 → 1.5.0  
+# major: 1.4.0 → 2.0.0
+
+# Step 3: Calculate next version based on label
+if [[ "$ISSUE_LABELS" == *"major"* ]]; then
+  NEXT_VERSION=$(echo $CURRENT_VERSION | awk -F. '{print ($1+1)".0.0"}')
+elif [[ "$ISSUE_LABELS" == *"minor"* ]]; then
+  NEXT_VERSION=$(echo $CURRENT_VERSION | awk -F. '{print $1"."($2+1)".0"}')
+elif [[ "$ISSUE_LABELS" == *"patch"* ]]; then
+  NEXT_VERSION=$(echo $CURRENT_VERSION | awk -F. '{print $1"."$2"."($3+1)}')
+fi
+
+# Step 4: Create and push beta branch
+git fetch origin
+git checkout -b beta-$NEXT_VERSION origin/latest
+git push origin beta-$NEXT_VERSION
+```
+
+### Implementation Steps
+```bash
+# Method 1: Check for existing beta branches using git
+git fetch origin
+BETA_BRANCH=$(git branch -r | grep "origin/beta-" | sort -V | tail -1 | sed 's/.*origin\///')
+
+# Method 2: Use GitHub API to list branches (more reliable)
+# Use github-mcp-server-list_branches to see all available branches
+
+# If beta branch exists, use it:
+if [ ! -z "$BETA_BRANCH" ]; then
+  git checkout -b feature/your-change origin/$BETA_BRANCH
+  echo "Using existing beta branch: $BETA_BRANCH"
+else
+  # Create new beta branch based on issue labels
+  echo "No beta branch found, creating new one..."
+  # [Use beta branch creation strategy above]
+fi
+```
+
+### Version Calculation Examples
+Based on current version `1.4.0`:
+- **Patch label** (bug fix): Creates `beta-1.4.1` branch
+- **Minor label** (new feature): Creates `beta-1.5.0` branch  
+- **Major label** (breaking change): Creates `beta-2.0.0` branch
+
+### Branch Verification
+Always verify you're targeting the correct branch before making changes:
+- Run `git status` to confirm current branch
+- Use `github-mcp-server-list_branches` tool to see all available branches
+- Run `git fetch origin && git branch -r` to see all available remote branches  
+- Verify issue has appropriate version label (patch/minor/major)
+- Ensure beta branch matches expected version for the change type
+- Current available branches include: `beta-1.4.1`, `latest`, `copilot/fix-56`
+
 ## Working Effectively
 
 ### Initial Setup

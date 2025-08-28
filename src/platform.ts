@@ -77,7 +77,7 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
     } else if (email === '' && password !== '') {
       return Promise.reject(new Error('Email must be present in the config if password is provided.'))
     }
-    const login = new Login(this.log, auth_file, oauth_file, email, password, oAuthCode)
+    const login = new Login(this.log, auth_file, oauth_file, email, password, oAuthCode, europe)
     try {
       await login.checkLogin()
       const ayla_api = get_ayla_api(auth_file, this.log, europe)

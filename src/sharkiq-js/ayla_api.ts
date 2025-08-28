@@ -134,6 +134,13 @@ class AylaApi {
         if (jsonResponse.error !== undefined) {
           this.log.error(`Message: ${JSON.stringify(jsonResponse.error)}`)
         }
+
+        // Provide helpful guidance for UK/European users who might have wrong region setting
+        if (status === 401 && !this.europe) {
+          this.log.warn('If you are located in the UK or Europe, try setting "europe": true in your plugin configuration.')
+          this.log.warn('SharkClean uses separate servers for US and European regions.')
+        }
+
         return false
       }
       const dateNow = new Date()
@@ -273,6 +280,13 @@ class AylaApi {
       const resp = await this.makeRequest('GET', url, null, auth_header)
       if (resp.status === 401) {
         this.log.error('API Error: Unauthorized')
+
+        // Provide helpful guidance for UK/European users who might have wrong region setting
+        if (!this.europe) {
+          this.log.warn('If you are located in the UK or Europe, try setting "europe": true in your plugin configuration.')
+          this.log.warn('SharkClean uses separate servers for US and European regions.')
+        }
+
         const status = await this.attempt_refresh(attempt)
         if (!status && attempt === 1) {
           return []

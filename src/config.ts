@@ -49,7 +49,7 @@ export async function removeFile(filePath: string): Promise<void> {
   }
 }
 
-export async function generateURL(oauth_file_path: string): Promise<string> {
+export async function generateURL(oauth_file_path: string, europe = false): Promise<string> {
   const state = generateRandomString(43)
   const code_verify = generateRandomString(43)
   const code_challenge = crypto.createHash('sha256').update(code_verify).digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
@@ -63,16 +63,17 @@ export async function generateURL(oauth_file_path: string): Promise<string> {
   try {
     await setOAuthData(oauth_file_path, oAuthData)
 
-    const url = `${global_vars.OAUTH.AUTH_URL
+    const oauthConfig = europe ? global_vars.EU_OAUTH : global_vars.OAUTH
+    const url = `${oauthConfig.AUTH_URL
     }?response_type=code`
-    + `&client_id=${encodeURIComponent(global_vars.OAUTH.CLIENT_ID)
+    + `&client_id=${encodeURIComponent(oauthConfig.CLIENT_ID)
     }&state=${encodeURIComponent(oAuthData.state)
-    }&scope=${encodeURIComponent(global_vars.OAUTH.SCOPES)
-    }&redirect_uri=${encodeURIComponent(global_vars.OAUTH.REDIRECT_URI)
+    }&scope=${encodeURIComponent(oauthConfig.SCOPES)
+    }&redirect_uri=${encodeURIComponent(oauthConfig.REDIRECT_URI)
     }&code_challenge=${encodeURIComponent(oAuthData.code_challenge)
     }&code_challenge_method=S256`
     + `&ui_locales=en`
-    + `&auth0Client=${global_vars.OAUTH.AUTH0_CLIENT}`
+    + `&auth0Client=${oauthConfig.AUTH0_CLIENT}`
 
     return url
   } catch (error) {
