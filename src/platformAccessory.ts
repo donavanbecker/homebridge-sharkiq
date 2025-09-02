@@ -9,6 +9,7 @@ export class SharkIQAccessory {
   private service: Service
   private dockedStatusService: Service
   private vacuumPausedService: Service
+  private isNativeVacuumServiceAvailable: boolean
 
   constructor(
     private readonly platform: SharkIQPlatform,
@@ -21,14 +22,24 @@ export class SharkIQAccessory {
     private readonly enhancedVacuumMode: boolean = true,
     private dockedDelay: number = 0,
   ) {
+    // Check if native robot vacuum service is available
+    this.isNativeVacuumServiceAvailable = this.checkForNativeVacuumService()
+    
     // Get device serial number
     const serial_number = device._dsn
     const vacuumUUID = UUIDGen.generate(`${serial_number}-vacuum`)
     
-    // Use FanV2 service until native robot vacuum service is available in HomeKit
-    // This provides the best user experience with current HomeKit framework
-    this.service = this.accessory.getService('Vacuum')
-      || this.accessory.addService(this.platform.Service.Fanv2, 'Vacuum', vacuumUUID)
+    // Use native robot vacuum service if available, otherwise use FanV2
+    if (this.isNativeVacuumServiceAvailable) {
+      this.log.info(`${device._name.toString()} using native HomeKit robot vacuum service`)
+      // Future: this.service = this.accessory.addService(this.platform.Service.RobotVacuum, 'Vacuum', vacuumUUID)
+      // For now, fall back to FanV2 until native service is confirmed
+      this.service = this.accessory.getService('Vacuum')
+        || this.accessory.addService(this.platform.Service.Fanv2, 'Vacuum', vacuumUUID)
+    } else {
+      this.service = this.accessory.getService('Vacuum')
+        || this.accessory.addService(this.platform.Service.Fanv2, 'Vacuum', vacuumUUID)
+    }
 
     // Vacuum Name - Default is device name
     this.service.setCharacteristic(this.platform.Characteristic.Name, device._name.toString())
@@ -92,6 +103,25 @@ export class SharkIQAccessory {
       this.log.debug('Promise Rejected with first interval update.')
       this.retrieveVacuumStateInterval()
     })
+  }
+
+  // Check if native robot vacuum service is available in HomeKit
+  private checkForNativeVacuumService(): boolean {
+    try {
+      // Check for common robot vacuum service names that might be added in future HomeKit versions
+      const serviceNames = ['RobotVacuum', 'VacuumCleaner', 'RoboticVacuum', 'Vacuum']
+      for (const serviceName of serviceNames) {
+        if ((this.platform.Service as any)[serviceName]) {
+          this.log.info(`Native vacuum service detected: ${serviceName}`)
+          return true
+        }
+      }
+      this.log.debug('Native robot vacuum service not yet available, using FanV2 service')
+      return false
+    } catch (error) {
+      this.log.debug('Error checking for native vacuum service:', error)
+      return false
+    }
   }
 
   // Retrieve vacuum states interval function

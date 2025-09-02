@@ -76,6 +76,17 @@ The `enhancedVacuumMode` option (enabled by default) provides improved vacuum be
 - Pause switch for pausing the vacuum while it's running
 - **Enhanced Vacuum Mode** (new): Improved power level mappings and vacuum-optimized behavior that prepares for future native HomeKit robot vacuum support
 
+## iOS 18 Robot Vacuum Support
+
+With iOS 18, Apple introduced native support for robot vacuums in the Home app. This plugin has been enhanced to prepare for this transition:
+
+- **Current Status**: Uses optimized FanV2 service with vacuum-specific behavior
+- **Enhanced Mode**: Provides intuitive power levels (25%=Eco, 50%=Normal, 100%=Max)
+- **Future Ready**: Automatically detects and migrates to native robot vacuum service when available in Homebridge
+- **Backward Compatible**: Supports legacy mode for users who prefer the original behavior
+
+When native HomeKit robot vacuum support becomes available in Homebridge, this plugin will automatically detect and use the proper vacuum service, providing an even better experience in the Home app.
+
 ### OAuth Code Login Method
 
 The OAuth Code value is for creating and storing the login for the plugin. Here is how to sign in with this method.
