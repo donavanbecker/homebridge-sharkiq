@@ -76,16 +76,16 @@ The `enhancedVacuumMode` option (enabled by default) provides improved vacuum be
 - Pause switch for pausing the vacuum while it's running
 - **Enhanced Vacuum Mode** (new): Improved power level mappings and vacuum-optimized behavior that prepares for future native HomeKit robot vacuum support
 
-## iOS 18 Robot Vacuum Support
+## Homebridge 2.0.0+ Compatibility
 
-With iOS 18, Apple introduced native support for robot vacuums in the Home app. This plugin has been enhanced to prepare for this transition:
+This plugin is compatible with Homebridge 2.0.0-alpha.28 and later versions, providing enhanced vacuum functionality while maintaining compatibility with current HomeKit limitations:
 
-- **Current Status**: Uses optimized FanV2 service with vacuum-specific behavior
-- **Enhanced Mode**: Provides intuitive power levels (25%=Eco, 50%=Normal, 100%=Max)
-- **Future Ready**: Automatically detects and migrates to native robot vacuum service when available in Homebridge
-- **Backward Compatible**: Supports legacy mode for users who prefer the original behavior
+- **Current Implementation**: Uses optimized FanV2 service with vacuum-specific behavior
+- **Enhanced Mode**: Provides intuitive power levels (25%=Eco, 50%=Normal, 100%=Max) instead of arbitrary percentages
+- **Future Ready**: Framework in place to detect native robot vacuum services when they become available in HomeKit/HAP-NodeJS
+- **Backward Compatible**: Supports legacy mode for users who prefer the original 30%/60%/90% mappings
 
-When native HomeKit robot vacuum support becomes available in Homebridge, this plugin will automatically detect and use the proper vacuum service, providing an even better experience in the Home app.
+**Note**: As of Homebridge 2.0.0-alpha.28, the HomeKit AccessoryProtocol (HAP) specification does not yet include native robot vacuum services. Apple's iOS 18 robot vacuum support in the Home app uses private/undocumented services that are not available in the open-source HAP-NodeJS framework. This plugin will automatically adapt when public robot vacuum services become available.
 
 ### OAuth Code Login Method
 
