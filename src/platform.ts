@@ -96,6 +96,7 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
 
     const invertDockedStatus = this.config.invertDockedStatus || false
     const dockedUpdateInterval = this.config.dockedUpdateInterval || 5000
+    const enhancedVacuumMode = this.config.enhancedVacuumMode !== undefined ? this.config.enhancedVacuumMode : true
     this.vacuumDevices.forEach((vacuumDevice) => {
       const uuid = this.api.hap.uuid.generate(vacuumDevice._dsn.toString())
       let accessory = unusedDeviceAccessories.find(accessory => accessory.UUID === uuid)
@@ -116,7 +117,7 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
         .setCharacteristic(this.Characteristic.Model, vacuumDevice._vac_model_number || 'Unknown')
         .setCharacteristic(this.Characteristic.SerialNumber, vacuumDevice._dsn)
 
-      new SharkIQAccessory(this, accessory, vacuumDevice, this.api.hap.uuid, this.log, invertDockedStatus, dockedUpdateInterval)
+      new SharkIQAccessory(this, accessory, vacuumDevice, this.api.hap.uuid, this.log, invertDockedStatus, dockedUpdateInterval, enhancedVacuumMode)
     })
 
     this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, devices)

@@ -41,7 +41,8 @@ Configure Homebridge. The config file for SharkIQ should include:
       ],
       "europe": false,
       "invertDockedStatus": false,
-      "dockedUpdateInterval": 30000
+      "dockedUpdateInterval": 30000,
+      "enhancedVacuumMode": true
     }
   ]
 }
@@ -63,6 +64,8 @@ If you are in Europe, set the `europe` config value to `true`. SharkClean has se
 
 The default interval between updating the docked status is 30 seconds (30000 ms). To change the docked status interval, add `dockedUpdateInterval` to your config. Value is in milliseconds. If the interval is too low, you have the risk of your account being rate limited.
 
+The `enhancedVacuumMode` option (enabled by default) provides improved vacuum behavior with more intuitive power level mappings that prepare for future native HomeKit robot vacuum support. When enabled, power levels are: 25%=Eco, 50%=Normal, 100%=Max. When disabled, it uses legacy mappings: 30%=Eco, 60%=Normal, 90%=Max.
+
 ## Features
 
 - Be able to turn on and off the vacuum
@@ -71,6 +74,7 @@ The default interval between updating the docked status is 30 seconds (30000 ms)
   - The sensor will display as "opened" when the vacuum is docked and "closed" when the vacuum is not docked
   - Set `invertDockedStatus` to `true` to display as "closed" when the vacuum is docked and "opened" when the vacuum is not docked
 - Pause switch for pausing the vacuum while it's running
+- **Enhanced Vacuum Mode** (new): Improved power level mappings and vacuum-optimized behavior that prepares for future native HomeKit robot vacuum support
 
 ### OAuth Code Login Method
 
