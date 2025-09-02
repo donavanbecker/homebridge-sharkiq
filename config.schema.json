@@ -38,6 +38,7 @@
       },
       "europe": {
         "title": "SharkClean European Server",
+        "description": "Set to true if you are located in Europe or the UK. SharkClean uses different servers for US and European regions.",
         "type": "boolean",
         "required": false,
         "default": false

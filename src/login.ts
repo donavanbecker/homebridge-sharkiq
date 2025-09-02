@@ -12,6 +12,7 @@ import StealthPlugin from 'puppeteer-extra-plugin-stealth'
 import { generateURL, getAuthData, getOAuthData, removeFile, setAuthData } from './config.js'
 import { global_vars } from './sharkiq-js/const.js'
 import { addSeconds } from './utils.js'
+import { TIMEOUTS } from './constants.js'
 
 export class Login {
   public log: Logger
@@ -22,16 +23,18 @@ export class Login {
   public app_id: string
   public app_secret: string
   public oAuthCode: string
+  public europe: boolean
 
-  constructor(log: Logger, auth_file: string, oauth_file: string, email: string, password: string, oAuthCode: string, app_id = global_vars.SHARK_APP_ID, app_secret = global_vars.SHARK_APP_SECRET) {
+  constructor(log: Logger, auth_file: string, oauth_file: string, email: string, password: string, oAuthCode: string, europe = false, app_id?: string, app_secret?: string) {
     this.log = log
     this.auth_file = auth_file
     this.oauth_file = oauth_file
     this.email = email
     this.password = password
     this.oAuthCode = oAuthCode
-    this.app_id = app_id
-    this.app_secret = app_secret
+    this.europe = europe
+    this.app_id = app_id || (europe ? global_vars.EU_SHARK_APP_ID : global_vars.SHARK_APP_ID)
+    this.app_secret = app_secret || (europe ? global_vars.EU_SHARK_APP_SECRET : global_vars.SHARK_APP_SECRET)
   }
 
   public async checkLogin(): Promise<void> {
@@ -48,7 +51,7 @@ export class Login {
       if (email === '' && password === '') {
         if (this.oAuthCode === '') {
           try {
-            const url = await generateURL(this.oauth_file)
+            const url = await generateURL(this.oauth_file, this.europe)
             return Promise.reject(new Error(`Please login to Shark using the following URL: ${url}`))
           } catch (error) {
             return Promise.reject(error)
@@ -69,11 +72,22 @@ export class Login {
       } else {
         if (platform === 'linux' && architecure === 'arm64') {
           this.log.warn(`${platform} ${architecure} architecture does not support automatic login. Please use OAuth code login method.`)
-          const url = await generateURL(this.oauth_file)
+
+          if (this.oAuthCode !== '') {
+            try {
+              const ouath_data = await getOAuthData(this.oauth_file)
+              await this.loginCallback(this.oAuthCode, ouath_data)
+              return
+            } catch (error) {
+              this.log.warn('OAuth data not found with OAuth code set. Please clear the OAuth code and try again.')
+              return Promise.reject(error)
+            }
+          }
+          const url = await generateURL(this.oauth_file, this.europe)
           return Promise.reject(new Error(`Please login to Shark using the following URL: ${url}`))
         }
         try {
-          const url = await generateURL(this.oauth_file)
+          const url = await generateURL(this.oauth_file, this.europe)
 
           await this.login(email, password, url)
           if (this.oAuthCode === '') {
@@ -119,7 +133,7 @@ export class Login {
           this.log.debug('Retrieving login response...')
           if (!response.ok() && ![301, 302].includes(response.status())) {
             this.log.debug('Error logging in: HTTP', response.status())
-            await setTimeout(1000)
+            await setTimeout(TIMEOUTS.LOGIN_DELAY)
             await page.screenshot({ path: 'login_error.png' })
             const errorMessages = await page.$$eval('span[class="ulp-input-error-message"]', el => el.map(x => x.textContent?.trim() || ''))
             const promptAlert = await page.$('div[id="prompt-alert"]')
@@ -152,17 +166,17 @@ export class Login {
       if (headless) {
         this.log.debug('Inputing login info...')
         await page.waitForSelector('button[name="action"]')
-        await setTimeout(1000)
+        await setTimeout(TIMEOUTS.LOGIN_DELAY)
 
         await page.waitForSelector('input[inputMode="email"]')
         await page.type('input[inputMode="email"]', email)
 
-        await setTimeout(1000)
+        await setTimeout(TIMEOUTS.LOGIN_DELAY)
         await page.type('input[type="password"]', password)
         let verified = false
         let attempts = 0
         while (!verified) {
-          await setTimeout(5000)
+          await setTimeout(TIMEOUTS.CAPTCHA_DELAY)
           const captchaInput = await page.$('input[name="captcha"]')
           const needsCaptcha = await captchaInput?.$eval('input[name="captcha"]', el => el.value === '')
           if (!needsCaptcha) {
@@ -182,7 +196,7 @@ export class Login {
           }
         }
         await page.click('button[name="action"]')
-        await setTimeout(5000)
+        await setTimeout(TIMEOUTS.CAPTCHA_DELAY)
       }
     } catch (error) {
       return Promise.reject(new Error(`Error: ${error}`))
@@ -193,25 +207,28 @@ export class Login {
   }
 
   private async loginCallback(code: string, oAuthData: OAuthData): Promise<void> {
+    const oauthConfig = this.europe ? global_vars.EU_OAUTH : global_vars.OAUTH
+    const loginUrl = this.europe ? global_vars.EU_LOGIN_URL : global_vars.LOGIN_URL
+    
     const data = {
       grant_type: 'authorization_code',
-      client_id: global_vars.OAUTH.CLIENT_ID,
+      client_id: oauthConfig.CLIENT_ID,
       code,
       code_verifier: oAuthData.code_verify,
-      redirect_uri: global_vars.OAUTH.REDIRECT_URI,
+      redirect_uri: oauthConfig.REDIRECT_URI,
     }
 
     const reqData = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Auth0-Client': global_vars.OAUTH.AUTH0_CLIENT,
+        'Auth0-Client': oauthConfig.AUTH0_CLIENT,
       },
       body: JSON.stringify(data),
     }
     this.log.debug('Request Data', JSON.stringify(data))
 
-    const response = await fetch(global_vars.OAUTH.TOKEN_URL, reqData)
+    const response = await fetch(oauthConfig.TOKEN_URL, reqData)
     if (!response.ok) {
       return Promise.reject(new Error(`Unable to get token data. HTTP ${response.status}`))
     }
@@ -229,7 +246,7 @@ export class Login {
         token: tokenData.id_token,
       }),
     }
-    const response2 = await fetch(`${global_vars.LOGIN_URL}/api/v1/token_sign_in`, reqData2)
+    const response2 = await fetch(`${loginUrl}/api/v1/token_sign_in`, reqData2)
     if (!response2.ok) {
       return Promise.reject(new Error(`Unable to get authorization tokens. HTTP ${response2.status}`))
     }

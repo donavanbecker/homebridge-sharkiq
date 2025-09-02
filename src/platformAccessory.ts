@@ -4,6 +4,8 @@ import type { SharkIQPlatform } from './platform.js'
 import type { SharkIqVacuum } from './sharkiq-js/sharkiq.js'
 
 import { OperatingModes, PowerModes, Properties } from './sharkiq-js/sharkiq.js'
+import { VACUUM_SPEEDS, TIMEOUTS } from './constants.js'
+import { createPromiseRejectionHandler } from './errorHandling.js'
 
 export class SharkIQAccessory {
   private service: Service
@@ -51,9 +53,9 @@ export class SharkIQAccessory {
     if (this.enhancedVacuumMode) {
       this.service.getCharacteristic(this.platform.Characteristic.RotationSpeed)
         .setProps({
-          minStep: 25,
-          minValue: 0,
-          maxValue: 100,
+          minStep: VACUUM_SPEEDS.ECO || 25,
+          minValue: VACUUM_SPEEDS.OFF || 0,
+          maxValue: ACUUM_SPEEDS.MAX || 100,
           validValues: [0, 25, 50, 75, 100], // Off, Eco, Normal, Max, Turbo
         })
         .onSet(this.setFanSpeed.bind(this))
@@ -62,9 +64,9 @@ export class SharkIQAccessory {
       // Legacy power level mappings for backward compatibility
       this.service.getCharacteristic(this.platform.Characteristic.RotationSpeed)
         .setProps({
-          minStep: 30,
-          minValue: 0,
-          maxValue: 90,
+          minStep: VACUUM_SPEEDS.ECO || 30,
+          minValue: VACUUM_SPEEDS.OFF || 0,
+          maxValue: ACUUM_SPEEDS.MAX || 90,
         })
         .onSet(this.setFanSpeed.bind(this))
         .onGet(this.getFanSpeed.bind(this))
@@ -93,7 +95,7 @@ export class SharkIQAccessory {
     this.retrieveVacuumStates().then(() => {
       this.retrieveVacuumStateInterval()
     }).catch(() => {
-      this.log.debug('Promise Rejected with first interval update.')
+      createPromiseRejectionHandler(this.log, 'first interval update')()
       this.retrieveVacuumStateInterval()
     })
   }
@@ -118,14 +120,20 @@ export class SharkIQAccessory {
       return false
     }
   }
+  // Helper method to calculate vacuum docked status based on inversion setting
+  private calculateDockedStatus(docked_status: number): boolean {
+    if (!this.invertDockedStatus) {
+      return docked_status === 1
+    } else {
+      return docked_status !== 1
+    }
+  }
 
   // Retrieve vacuum states interval function
   async retrieveVacuumStateInterval(): Promise<void> {
     setInterval(async () => {
       await this.retrieveVacuumStates()
-        .catch(() => {
-          this.log.debug('Promise Rejected with interval update.')
-        })
+        .catch(createPromiseRejectionHandler(this.log, 'interval update'))
     }, this.dockedUpdateInterval + this.dockedDelay)
   }
 
@@ -135,12 +143,7 @@ export class SharkIQAccessory {
     await this.device.update(Properties.DOCKED_STATUS)
 
     const docked_status = this.device.docked_status()
-    let vacuumDocked = false
-    if (!this.invertDockedStatus) {
-      vacuumDocked = docked_status === 1
-    } else {
-      vacuumDocked = docked_status !== 1
-    }
+    const vacuumDocked = this.calculateDockedStatus(docked_status)
 
     return vacuumDocked
   }
@@ -174,11 +177,7 @@ export class SharkIQAccessory {
       })
 
     const docked_status = this.device.docked_status()
-    if (!this.invertDockedStatus) {
-      vacuumDocked = docked_status === 1
-    } else {
-      vacuumDocked = docked_status !== 1
-    }
+    vacuumDocked = this.calculateDockedStatus(docked_status)
     const power_mode = this.device.power_mode()
     const mode = this.device.operating_mode()
     const vacuumActive = mode === OperatingModes.START || mode === OperatingModes.STOP
@@ -187,20 +186,20 @@ export class SharkIQAccessory {
       if (this.enhancedVacuumMode) {
         // Enhanced vacuum mode: 25=Eco, 50=Normal, 100=Max
         if (power_mode === PowerModes.MAX) {
-          this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, 100)
+          this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, VACUUM_SPEEDS.MAX || 100)
         } else if (power_mode === PowerModes.ECO) {
-          this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, 25)
+          this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, VACUUM_SPEEDS.ECO || 25)
         } else {
-          this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, 50)
+          this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, VACUUM_SPEEDS.NORMAL || 50)
         }
       } else {
         // Legacy mode: 30=Eco, 60=Normal, 90=Max
         if (power_mode === PowerModes.MAX) {
-          this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, 90)
+          this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, VACUUM_SPEEDS.MAX || 90)
         } else if (power_mode === PowerModes.ECO) {
-          this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, 30)
+          this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, VACUUM_SPEEDS.ECO || 30)
         } else {
-          this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, 60)
+          this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, VACUUM_SPEEDS.NORMAL || 60)
         }
       }
       if (mode === OperatingModes.STOP) {
@@ -209,7 +208,7 @@ export class SharkIQAccessory {
         this.vacuumPausedService.updateCharacteristic(this.platform.Characteristic.On, false)
       }
     } else {
-      this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, 0)
+      this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, VACUUM_SPEEDS.OFF)
     }
     this.dockedStatusService.updateCharacteristic(this.platform.Characteristic.ContactSensorState, vacuumDocked)
 
@@ -254,19 +253,15 @@ export class SharkIQAccessory {
     if (mode === OperatingModes.START || mode === OperatingModes.STOP) {
       if (value) {
         await this.device.set_operating_mode(OperatingModes.STOP)
-          .catch(() => {
-            this.log.debug('Promise Rejected with setting operating mode.')
-          })
+          .catch(createPromiseRejectionHandler(this.log, 'setting operating mode'))
       } else {
         await this.device.set_operating_mode(OperatingModes.START)
-          .catch(() => {
-            this.log.debug('Promise Rejected with setting operating mode.')
-          })
+          .catch(createPromiseRejectionHandler(this.log, 'setting operating mode'))
       }
     } else {
       setTimeout(() => {
         this.vacuumPausedService.updateCharacteristic(this.platform.Characteristic.On, false)
-      }, 100)
+      }, TIMEOUTS.PAUSED_UPDATE_DELAY)
     }
   }
 
@@ -290,9 +285,7 @@ export class SharkIQAccessory {
       const mode = this.device.operating_mode()
       if (mode === OperatingModes.START || mode === OperatingModes.STOP) {
         await this.setFanSpeed(0)
-          .catch(() => {
-            this.log.debug('Promise Rejected with setting fan speed.')
-          })
+          .catch(createPromiseRejectionHandler(this.log, 'setting fan speed'))
       }
     }
   }
@@ -306,27 +299,28 @@ export class SharkIQAccessory {
     const vacuumActive = mode === OperatingModes.START || mode === OperatingModes.STOP
     if (vacuumActive) {
       const power_mode = this.device.power_mode()
+
       if (this.enhancedVacuumMode) {
         // Enhanced vacuum mode: 0=Off, 25=Eco, 50=Normal, 100=Max
         if (power_mode === PowerModes.MAX) {
-          return 100 // Max power
+          return VACUUM_SPEEDS.MAX || 100 // Max power
         } else if (power_mode === PowerModes.ECO) {
-          return 25  // Eco mode
+          return VACUUM_SPEEDS.ECO || 25  // Eco mode
         } else {
-          return 50  // Normal mode
+          return VACUUM_SPEEDS.NORMAL || 50  // Normal mode
         }
       } else {
         // Legacy mode: 0=Off, 30=Eco, 60=Normal, 90=Max
         if (power_mode === PowerModes.MAX) {
-          return 90
+          return VACUUM_SPEEDS.MAX || 90
         } else if (power_mode === PowerModes.ECO) {
-          return 30
+          return VACUUM_SPEEDS.ECO || 30
         } else {
-          return 60
+          return VACUUM_SPEEDS.NORMAL || 60
         }
       }
     } else {
-      return 0 // Off
+      return VACUUM_SPEEDS.OFF || 0 // Off
     }
   }
 
@@ -338,16 +332,16 @@ export class SharkIQAccessory {
     
     if (this.enhancedVacuumMode) {
       // Enhanced vacuum mode mappings
-      if (value === 25) {
+      if (value === (VACUUM_SPEEDS.ECO ?? 25)) {
         power_mode = PowerModes.ECO
         this.log.debug('Setting vacuum to ECO mode')
-      } else if (value === 100 || value === 75) {
+      } else if (value === (VACUUM_SPEEDS.MAX ?? 100) || value === (VACUUM_SPEEDS.MAX ?? 75)) {
         power_mode = PowerModes.MAX
         this.log.debug('Setting vacuum to MAX mode')
-      } else if (value === 50) {
+      } else if (value === (VACUUM_SPEEDS.NORMAL ?? 50)) {
         power_mode = PowerModes.NORMAL
         this.log.debug('Setting vacuum to NORMAL mode')
-      } else if (value === 0) {
+      } else if (value === (VACUUM_SPEEDS.OFF ?? 0)) {
         this.log.debug('Stopping vacuum')
         await this.device.cancel_clean()
           .catch(() => {
@@ -359,13 +353,13 @@ export class SharkIQAccessory {
       }
     } else {
       // Legacy mode mappings
-      if (value === 30) {
+      if (value === (VACUUM_SPEEDS.ECO ?? 30)) {
         power_mode = PowerModes.ECO
         this.log.debug('Setting vacuum to ECO mode (legacy)')
-      } else if (value === 90) {
+      } else if (value === (VACUUM_SPEEDS.MAX ?? 90)) {
         power_mode = PowerModes.MAX
         this.log.debug('Setting vacuum to MAX mode (legacy)')
-      } else if (value === 0) {
+      } else if (value === (VACUUM_SPEEDS.OFF ?? 0)) {
         this.log.debug('Stopping vacuum')
         await this.device.cancel_clean()
           .catch(() => {
@@ -389,16 +383,12 @@ export class SharkIQAccessory {
       this.vacuumPausedService.updateCharacteristic(this.platform.Characteristic.On, false)
     }
     await this.device.set_property_value(Properties.POWER_MODE, power_mode)
-      .catch(() => {
-        this.log.debug('Promise Rejected with powermode update.')
-      })
+      .catch(createPromiseRejectionHandler(this.log, 'powermode update'))
     const mode = this.device.operating_mode()
     if (mode !== OperatingModes.START && mode !== OperatingModes.STOP) {
       this.service.updateCharacteristic(this.platform.Characteristic.Active, this.platform.Characteristic.Active.ACTIVE)
       await this.device.clean_rooms([])
-        .catch(() => {
-          this.log.debug('Promise Rejected with start cleaning update.')
-        })
+        .catch(createPromiseRejectionHandler(this.log, 'start cleaning update'))
     }
   }
 }
