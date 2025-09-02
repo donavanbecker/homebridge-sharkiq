@@ -120,13 +120,16 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
       new SharkIQAccessory(this, accessory, vacuumDevice, this.api.hap.uuid, this.log, invertDockedStatus, dockedUpdateInterval, enhancedVacuumMode)
     })
 
-    this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, devices)
+    // Publish accessories as external accessories for better Matter compatibility
+    // External accessories are standalone devices rather than platform accessories
+    this.api.publishExternalAccessories(PLUGIN_NAME, devices)
 
     unusedDeviceAccessories.forEach((unusedDeviceAccessory) => {
       this.log.info(`Removing unused accessory with name ${unusedDeviceAccessory.displayName}`)
       this.accessories.splice(this.accessories.indexOf(unusedDeviceAccessory), 1)
     })
 
-    this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, unusedDeviceAccessories)
+    // Note: External accessories don't require explicit unregistration
+    // They are managed differently than platform accessories
   }
 }
