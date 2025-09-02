@@ -2,6 +2,13 @@ import type { API, Characteristic, DynamicPlatformPlugin, Logger, PlatformAccess
 
 import type { SharkIqVacuum } from './sharkiq-js/sharkiq'
 
+// Extend the API interface to include publishMatterAccessories for Homebridge 2.0.0-alpha.28+
+declare module 'homebridge' {
+  interface API {
+    publishMatterAccessories?(pluginIdentifier: string, accessories: PlatformAccessory[]): void
+  }
+}
+
 import { join } from 'node:path'
 
 import { Login } from './login.js'
@@ -120,9 +127,14 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
       new SharkIQAccessory(this, accessory, vacuumDevice, this.api.hap.uuid, this.log, invertDockedStatus, dockedUpdateInterval, enhancedVacuumMode)
     })
 
-    // Publish accessories as external accessories for better Matter compatibility
-    // External accessories are standalone devices rather than platform accessories
-    this.api.publishExternalAccessories(PLUGIN_NAME, devices)
+    // Publish accessories as Matter accessories for native Matter support
+    // Uses publishMatterAccessories for proper vacuum classification in Matter
+    if (typeof this.api.publishMatterAccessories === 'function') {
+      this.api.publishMatterAccessories(PLUGIN_NAME, devices)
+    } else {
+      // Fallback to external accessories for older Homebridge versions
+      this.api.publishExternalAccessories(PLUGIN_NAME, devices)
+    }
 
     unusedDeviceAccessories.forEach((unusedDeviceAccessory) => {
       this.log.info(`Removing unused accessory with name ${unusedDeviceAccessory.displayName}`)
