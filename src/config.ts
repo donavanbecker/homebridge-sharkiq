@@ -15,37 +15,6 @@ export async function getAuthData(authFilePath: string): Promise<AuthData> {
   }
 }
 
-// export async function getAuthData(configPath: string): Promise<AuthData> {
-//   try {
-//     const data = await fs.readFile(configPath, 'utf8');
-//     const currentConfig = JSON.parse(data);
-
-//     if (!Array.isArray(currentConfig.platforms)) {
-//       return Promise.reject('No platforms array found in config');
-//     }
-
-//     const pluginConfig = currentConfig.platforms.find((x: { platform: string }) => x.platform === PLATFORM_NAME);
-
-//     if (!pluginConfig) {
-//       return Promise.reject(`${PLATFORM_NAME} platform not found in config`);
-//     }
-
-//     if (typeof pluginConfig.credentials !== 'object') {
-//       return Promise.reject(`No credentials object found in ${PLATFORM_NAME} platform config`);
-//     }
-
-//     if (typeof pluginConfig.credentials.access_token !== 'string' ||
-//       typeof pluginConfig.credentials.refresh_token !== 'string' ||
-//       typeof pluginConfig.credentials.expiration !== 'string') {
-//       return Promise.reject('Invalid types found in credentials object');
-//     }
-
-//     return pluginConfig.credentials;
-//   } catch (error) {
-//     return Promise.reject('Error reading auth data from config: ' + error);
-//   }
-// }
-
 export async function setAuthData(authFilePath: string, data: AuthData): Promise<void> {
   try {
     await fs.writeFile(authFilePath, JSON.stringify(data, null, 4), 'utf8')
@@ -53,42 +22,6 @@ export async function setAuthData(authFilePath: string, data: AuthData): Promise
     return Promise.reject(new Error(`Error writing auth data: ${error}`))
   }
 }
-
-// export async function setAuthData(configPath: string, data: AuthData): Promise<void> {
-//   try {
-//     if (!data) {
-//       return Promise.reject('No data provided');
-//     }
-//     const currentConfigData = await fs.readFile(configPath, 'utf8');
-//     const currentConfig = JSON.parse(currentConfigData);
-
-//     if (!Array.isArray(currentConfig.platforms)) {
-//       return Promise.reject('No platforms array found in config');
-//     }
-
-//     const pluginConfig = currentConfig.platforms.find((x: { platform: string }) => x.platform === PLATFORM_NAME);
-
-//     if (!pluginConfig) {
-//       return Promise.reject('No platform found in config');
-//     }
-
-//     if (typeof pluginConfig.credentials !== 'object') {
-//       pluginConfig.credentials = {};
-//     }
-
-//     pluginConfig.credentials.access_token = data.access_token;
-//     pluginConfig.credentials.refresh_token = data.refresh_token;
-//     pluginConfig.credentials.expiration = data.expiration;
-
-//     try {
-//       await fs.writeFile(configPath, JSON.stringify(currentConfig, null, 4), 'utf8');
-//     } catch (error) {
-//       return Promise.reject(`${error}`);
-//     }
-//   } catch (error) {
-//     return Promise.reject('Error writing auth data to config: ' + error);
-//   }
-// }
 
 export async function getOAuthData(oAuthFilePath: string): Promise<OAuthData> {
   try {
@@ -116,7 +49,7 @@ export async function removeFile(filePath: string): Promise<void> {
   }
 }
 
-export async function generateURL(oauth_file_path: string): Promise<string> {
+export async function generateURL(oauth_file_path: string, europe = false): Promise<string> {
   const state = generateRandomString(43)
   const code_verify = generateRandomString(43)
   const code_challenge = crypto.createHash('sha256').update(code_verify).digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
@@ -130,16 +63,17 @@ export async function generateURL(oauth_file_path: string): Promise<string> {
   try {
     await setOAuthData(oauth_file_path, oAuthData)
 
-    const url = `${global_vars.OAUTH.AUTH_URL
+    const oauthConfig = europe ? global_vars.EU_OAUTH : global_vars.OAUTH
+    const url = `${oauthConfig.AUTH_URL
     }?response_type=code`
-    + `&client_id=${encodeURIComponent(global_vars.OAUTH.CLIENT_ID)
+    + `&client_id=${encodeURIComponent(oauthConfig.CLIENT_ID)
     }&state=${encodeURIComponent(oAuthData.state)
-    }&scope=${encodeURIComponent(global_vars.OAUTH.SCOPES)
-    }&redirect_uri=${encodeURIComponent(global_vars.OAUTH.REDIRECT_URI)
+    }&scope=${encodeURIComponent(oauthConfig.SCOPES)
+    }&redirect_uri=${encodeURIComponent(oauthConfig.REDIRECT_URI)
     }&code_challenge=${encodeURIComponent(oAuthData.code_challenge)
     }&code_challenge_method=S256`
     + `&ui_locales=en`
-    + `&auth0Client=${global_vars.OAUTH.AUTH0_CLIENT}`
+    + `&auth0Client=${oauthConfig.AUTH0_CLIENT}`
 
     return url
   } catch (error) {

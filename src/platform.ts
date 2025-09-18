@@ -8,6 +8,7 @@ import { Login } from './login.js'
 import { SharkIQAccessory } from './platformAccessory.js'
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
 import { get_ayla_api } from './sharkiq-js/ayla_api.js'
+import { TIMEOUTS } from './constants.js'
 import { global_vars } from './sharkiq-js/const.js'
 
 // SharkIQPlatform Main Class
@@ -62,15 +63,21 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
     const oAuthCode = this.config.oAuthCode || ''
     const email = this.config.email || ''
     const password = this.config.password || ''
-    if (!email || typeof email !== 'string' || !password || typeof password !== 'string') {
-      this.log.warn('Email and password not present in the config. Using OAuth code login method instead.')
-      this.log.info('Please provide email and password in the config if you want to use email/password login method.')
-    } else if (email !== '' && password === '') {
+    // Log which login method is being used based on user configuration
+    // Email/password takes precedence if both are provided (matches Login class logic)
+    if (email && typeof email === 'string' && email.trim() !== '' && 
+        password && typeof password === 'string' && password.trim() !== '') {
+      this.log.info('Valid email and password present, using email and password login method.')
+    } else if (oAuthCode && typeof oAuthCode === 'string' && oAuthCode.trim() !== '') {
+      this.log.info('Valid OAuth code present, using OAuth login method.')
+    }
+    
+    if (email !== '' && password === '') {
       return Promise.reject(new Error('Password must be present in the config if email is provided.'))
     } else if (email === '' && password !== '') {
       return Promise.reject(new Error('Email must be present in the config if password is provided.'))
     }
-    const login = new Login(this.log, auth_file, oauth_file, email, password, oAuthCode)
+    const login = new Login(this.log, auth_file, oauth_file, email, password, oAuthCode, europe)
     try {
       await login.checkLogin()
       const ayla_api = get_ayla_api(auth_file, this.log, europe)
@@ -95,7 +102,7 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
     const unusedDeviceAccessories = this.accessories
 
     const invertDockedStatus = this.config.invertDockedStatus || false
-    const dockedUpdateInterval = this.config.dockedUpdateInterval || 5000
+    const dockedUpdateInterval = this.config.dockedUpdateInterval || TIMEOUTS.DEFAULT_DOCKED_UPDATE_INTERVAL
     this.vacuumDevices.forEach((vacuumDevice) => {
       const uuid = this.api.hap.uuid.generate(vacuumDevice._dsn.toString())
       let accessory = unusedDeviceAccessories.find(accessory => accessory.UUID === uuid)
