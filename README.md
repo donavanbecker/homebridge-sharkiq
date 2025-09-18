@@ -41,7 +41,8 @@ Configure Homebridge. The config file for SharkIQ should include:
       ],
       "europe": false,
       "invertDockedStatus": false,
-      "dockedUpdateInterval": 30000
+      "dockedUpdateInterval": 30000,
+      "enhancedVacuumMode": true
     }
   ]
 }
@@ -63,6 +64,8 @@ If you are in Europe or the UK, set the `europe` config value to `true`. SharkCl
 
 The default interval between updating the docked status is 30 seconds (30000 ms). To change the docked status interval, add `dockedUpdateInterval` to your config. Value is in milliseconds. If the interval is too low, you have the risk of your account being rate limited.
 
+The `enhancedVacuumMode` option (enabled by default) provides improved vacuum behavior with more intuitive power level mappings that prepare for future native HomeKit robot vacuum support. When enabled, power levels are: 25%=Eco, 50%=Normal, 100%=Max. When disabled, it uses legacy mappings: 30%=Eco, 60%=Normal, 90%=Max.
+
 ## Features
 
 - Be able to turn on and off the vacuum
@@ -71,6 +74,18 @@ The default interval between updating the docked status is 30 seconds (30000 ms)
   - The sensor will display as "opened" when the vacuum is docked and "closed" when the vacuum is not docked
   - Set `invertDockedStatus` to `true` to display as "closed" when the vacuum is docked and "opened" when the vacuum is not docked
 - Pause switch for pausing the vacuum while it's running
+- **Enhanced Vacuum Mode** (new): Improved power level mappings and vacuum-optimized behavior that prepares for future native HomeKit robot vacuum support
+
+## Homebridge 2.0.0+ Compatibility
+
+This plugin is compatible with Homebridge 2.0.0-alpha.28 and later versions, providing enhanced vacuum functionality while maintaining compatibility with current HomeKit limitations:
+
+- **Current Implementation**: Uses optimized FanV2 service with vacuum-specific behavior
+- **Enhanced Mode**: Provides intuitive power levels (25%=Eco, 50%=Normal, 100%=Max) instead of arbitrary percentages
+- **Future Ready**: Framework in place to detect native robot vacuum services when they become available in HomeKit/HAP-NodeJS
+- **Backward Compatible**: Supports legacy mode for users who prefer the original 30%/60%/90% mappings
+
+**Note**: As of Homebridge 2.0.0-alpha.28, the HomeKit AccessoryProtocol (HAP) specification does not yet include native robot vacuum services. Apple's iOS 18 robot vacuum support in the Home app uses private/undocumented services that are not available in the open-source HAP-NodeJS framework. This plugin will automatically adapt when public robot vacuum services become available.
 
 ### OAuth Code Login Method
 

@@ -2,6 +2,13 @@ import type { API, Characteristic, DynamicPlatformPlugin, Logger, PlatformAccess
 
 import type { SharkIqVacuum } from './sharkiq-js/sharkiq'
 
+// Extend the API interface to include publishMatterAccessories for Homebridge 2.0.0-alpha.28+
+declare module 'homebridge' {
+  interface API {
+    publishMatterAccessories?(pluginIdentifier: string, accessories: PlatformAccessory[]): void
+  }
+}
+
 import { join } from 'node:path'
 
 import { Login } from './login.js'
@@ -103,6 +110,7 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
 
     const invertDockedStatus = this.config.invertDockedStatus || false
     const dockedUpdateInterval = this.config.dockedUpdateInterval || TIMEOUTS.DEFAULT_DOCKED_UPDATE_INTERVAL
+    const enhancedVacuumMode = this.config.enhancedVacuumMode !== undefined ? this.config.enhancedVacuumMode : true
     this.vacuumDevices.forEach((vacuumDevice) => {
       const uuid = this.api.hap.uuid.generate(vacuumDevice._dsn.toString())
       let accessory = unusedDeviceAccessories.find(accessory => accessory.UUID === uuid)
@@ -123,16 +131,24 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
         .setCharacteristic(this.Characteristic.Model, vacuumDevice._vac_model_number || 'Unknown')
         .setCharacteristic(this.Characteristic.SerialNumber, vacuumDevice._dsn)
 
-      new SharkIQAccessory(this, accessory, vacuumDevice, this.api.hap.uuid, this.log, invertDockedStatus, dockedUpdateInterval)
+      new SharkIQAccessory(this, accessory, vacuumDevice, this.api.hap.uuid, this.log, invertDockedStatus, dockedUpdateInterval, enhancedVacuumMode)
     })
 
-    this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, devices)
+    // Publish accessories as Matter accessories for native Matter support
+    // Uses publishMatterAccessories for proper vacuum classification in Matter
+    if (typeof this.api.publishMatterAccessories === 'function') {
+      this.api.publishMatterAccessories(PLUGIN_NAME, devices)
+    } else {
+      // Fallback to external accessories for older Homebridge versions
+      this.api.publishExternalAccessories(PLUGIN_NAME, devices)
+    }
 
     unusedDeviceAccessories.forEach((unusedDeviceAccessory) => {
       this.log.info(`Removing unused accessory with name ${unusedDeviceAccessory.displayName}`)
       this.accessories.splice(this.accessories.indexOf(unusedDeviceAccessory), 1)
     })
 
-    this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, unusedDeviceAccessories)
+    // Note: External accessories don't require explicit unregistration
+    // They are managed differently than platform accessories
   }
 }

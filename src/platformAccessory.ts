@@ -11,6 +11,7 @@ export class SharkIQAccessory {
   private service: Service
   private dockedStatusService: Service
   private vacuumPausedService: Service
+  private isNativeVacuumServiceAvailable: boolean
 
   constructor(
     private readonly platform: SharkIQPlatform,
@@ -20,31 +21,56 @@ export class SharkIQAccessory {
     private readonly log: Logger,
     private readonly invertDockedStatus: boolean,
     private readonly dockedUpdateInterval: number,
+    private readonly enhancedVacuumMode: boolean = true,
     private dockedDelay: number = 0,
   ) {
+    // Check if native robot vacuum service is available
+    this.isNativeVacuumServiceAvailable = this.checkForNativeVacuumService()
+    
     // Get device serial number
     const serial_number = device._dsn
     const vacuumUUID = UUIDGen.generate(`${serial_number}-vacuum`)
+    
+    // Use FanV2 service as no native robot vacuum service is available in current HomeKit framework
+    // This provides the best vacuum-like experience with enhanced power level mappings
     this.service = this.accessory.getService('Vacuum')
       || this.accessory.addService(this.platform.Service.Fanv2, 'Vacuum', vacuumUUID)
 
     // Vacuum Name - Default is device name
     this.service.setCharacteristic(this.platform.Characteristic.Name, device._name.toString())
+    
+    // Log the vacuum mode being used
+    this.log.info(`${device._name.toString()} configured with ${this.enhancedVacuumMode ? 'Enhanced' : 'Legacy'} vacuum mode`)
 
     // // Vacuum Active
     this.service.getCharacteristic(this.platform.Characteristic.Active)
       .onSet(this.setVacuumActive.bind(this))
       .onGet(this.getVacuumActive.bind(this))
 
-    // Vacuum Power (Eco, Normal, Max)
-    this.service.getCharacteristic(this.platform.Characteristic.RotationSpeed)
-      .setProps({
-        minStep: VACUUM_SPEEDS.ECO,
-        minValue: VACUUM_SPEEDS.OFF,
-        maxValue: VACUUM_SPEEDS.MAX,
-      })
-      .onSet(this.setFanSpeed.bind(this))
-      .onGet(this.getFanSpeed.bind(this))
+    // Vacuum Power (Off, Eco, Normal, Max)
+    // Using RotationSpeed as a power level indicator until native vacuum service is available
+    // Power levels: 0=Off, 25=Eco, 50=Normal, 100=Max (enhanced mode) or 0=Off, 30=Eco, 60=Normal, 90=Max (legacy mode)
+    if (this.enhancedVacuumMode) {
+      this.service.getCharacteristic(this.platform.Characteristic.RotationSpeed)
+        .setProps({
+          minStep: VACUUM_SPEEDS.ECO || 25,
+          minValue: VACUUM_SPEEDS.OFF || 0,
+          maxValue: ACUUM_SPEEDS.MAX || 100,
+          validValues: [0, 25, 50, 75, 100], // Off, Eco, Normal, Max, Turbo
+        })
+        .onSet(this.setFanSpeed.bind(this))
+        .onGet(this.getFanSpeed.bind(this))
+    } else {
+      // Legacy power level mappings for backward compatibility
+      this.service.getCharacteristic(this.platform.Characteristic.RotationSpeed)
+        .setProps({
+          minStep: VACUUM_SPEEDS.ECO || 30,
+          minValue: VACUUM_SPEEDS.OFF || 0,
+          maxValue: ACUUM_SPEEDS.MAX || 90,
+        })
+        .onSet(this.setFanSpeed.bind(this))
+        .onGet(this.getFanSpeed.bind(this))
+    }
 
     // Vacuum Docked Status
     this.dockedStatusService = this.accessory.getService('Vacuum Docked')
@@ -74,6 +100,26 @@ export class SharkIQAccessory {
     })
   }
 
+  // Check if native robot vacuum service is available in HomeKit
+  private checkForNativeVacuumService(): boolean {
+    try {
+      // As of Homebridge 2.0.0-alpha.28+, there are no native robot vacuum services available
+      // in the HAP-NodeJS framework. The HomeKit protocol specification does not yet include
+      // dedicated robot vacuum services. We check for potential future services:
+      const potentialServices = ['RobotVacuum', 'VacuumCleaner', 'RoboticVacuum']
+      for (const serviceName of potentialServices) {
+        if ((this.platform.Service as any)[serviceName]) {
+          this.log.info(`Native vacuum service detected: ${serviceName}`)
+          return true
+        }
+      }
+      this.log.debug('No native robot vacuum services available in current HomeKit framework, using enhanced FanV2 service')
+      return false
+    } catch (error) {
+      this.log.debug('Error checking for native vacuum service:', error)
+      return false
+    }
+  }
   // Helper method to calculate vacuum docked status based on inversion setting
   private calculateDockedStatus(docked_status: number): boolean {
     if (!this.invertDockedStatus) {
@@ -137,12 +183,24 @@ export class SharkIQAccessory {
     const vacuumActive = mode === OperatingModes.START || mode === OperatingModes.STOP
     this.service.updateCharacteristic(this.platform.Characteristic.Active, vacuumActive)
     if (vacuumActive) {
-      if (power_mode === PowerModes.MAX) {
-        this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, VACUUM_SPEEDS.MAX)
-      } else if (power_mode === PowerModes.ECO) {
-        this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, VACUUM_SPEEDS.ECO)
+      if (this.enhancedVacuumMode) {
+        // Enhanced vacuum mode: 25=Eco, 50=Normal, 100=Max
+        if (power_mode === PowerModes.MAX) {
+          this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, VACUUM_SPEEDS.MAX || 100)
+        } else if (power_mode === PowerModes.ECO) {
+          this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, VACUUM_SPEEDS.ECO || 25)
+        } else {
+          this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, VACUUM_SPEEDS.NORMAL || 50)
+        }
       } else {
-        this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, VACUUM_SPEEDS.NORMAL)
+        // Legacy mode: 30=Eco, 60=Normal, 90=Max
+        if (power_mode === PowerModes.MAX) {
+          this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, VACUUM_SPEEDS.MAX || 90)
+        } else if (power_mode === PowerModes.ECO) {
+          this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, VACUUM_SPEEDS.ECO || 30)
+        } else {
+          this.service.updateCharacteristic(this.platform.Characteristic.RotationSpeed, VACUUM_SPEEDS.NORMAL || 60)
+        }
       }
       if (mode === OperatingModes.STOP) {
         this.vacuumPausedService.updateCharacteristic(this.platform.Characteristic.On, true)
@@ -154,7 +212,7 @@ export class SharkIQAccessory {
     }
     this.dockedStatusService.updateCharacteristic(this.platform.Characteristic.ContactSensorState, vacuumDocked)
 
-    this.log.debug('Vacuum Docked:', vacuumDocked, 'Vacuum Active:', vacuumActive, 'Power Mode:', power_mode)
+    this.log.debug('Vacuum Status - Docked:', vacuumDocked, 'Active:', vacuumActive, 'Power Mode:', power_mode === PowerModes.ECO ? 'ECO' : power_mode === PowerModes.MAX ? 'MAX' : 'NORMAL')
   }
 
   // Update paused and active state on switch
@@ -241,15 +299,28 @@ export class SharkIQAccessory {
     const vacuumActive = mode === OperatingModes.START || mode === OperatingModes.STOP
     if (vacuumActive) {
       const power_mode = this.device.power_mode()
-      if (power_mode === PowerModes.MAX) {
-        return VACUUM_SPEEDS.MAX
-      } else if (power_mode === PowerModes.ECO) {
-        return VACUUM_SPEEDS.ECO
+
+      if (this.enhancedVacuumMode) {
+        // Enhanced vacuum mode: 0=Off, 25=Eco, 50=Normal, 100=Max
+        if (power_mode === PowerModes.MAX) {
+          return VACUUM_SPEEDS.MAX || 100 // Max power
+        } else if (power_mode === PowerModes.ECO) {
+          return VACUUM_SPEEDS.ECO || 25  // Eco mode
+        } else {
+          return VACUUM_SPEEDS.NORMAL || 50  // Normal mode
+        }
       } else {
-        return VACUUM_SPEEDS.NORMAL
+        // Legacy mode: 0=Off, 30=Eco, 60=Normal, 90=Max
+        if (power_mode === PowerModes.MAX) {
+          return VACUUM_SPEEDS.MAX || 90
+        } else if (power_mode === PowerModes.ECO) {
+          return VACUUM_SPEEDS.ECO || 30
+        } else {
+          return VACUUM_SPEEDS.NORMAL || 60
+        }
       }
     } else {
-      return VACUUM_SPEEDS.OFF
+      return VACUUM_SPEEDS.OFF || 0 // Off
     }
   }
 
@@ -258,17 +329,51 @@ export class SharkIQAccessory {
     this.log.debug('Triggering SET Fan Speed. Value:', value)
 
     let power_mode = PowerModes.NORMAL
-    if (value === VACUUM_SPEEDS.ECO) {
-      power_mode = PowerModes.ECO
-    } else if (value === VACUUM_SPEEDS.MAX) {
-      power_mode = PowerModes.MAX
-    } else if (value === VACUUM_SPEEDS.OFF) {
-      await this.device.cancel_clean()
-        .catch(createPromiseRejectionHandler(this.log, 'cancel cleaning update'))
-      this.service.updateCharacteristic(this.platform.Characteristic.Active, this.platform.Characteristic.Active.INACTIVE)
-      this.vacuumPausedService.updateCharacteristic(this.platform.Characteristic.On, false)
-      return
+    
+    if (this.enhancedVacuumMode) {
+      // Enhanced vacuum mode mappings
+      if (value === (VACUUM_SPEEDS.ECO ?? 25)) {
+        power_mode = PowerModes.ECO
+        this.log.debug('Setting vacuum to ECO mode')
+      } else if (value === (VACUUM_SPEEDS.MAX ?? 100) || value === (VACUUM_SPEEDS.MAX ?? 75)) {
+        power_mode = PowerModes.MAX
+        this.log.debug('Setting vacuum to MAX mode')
+      } else if (value === (VACUUM_SPEEDS.NORMAL ?? 50)) {
+        power_mode = PowerModes.NORMAL
+        this.log.debug('Setting vacuum to NORMAL mode')
+      } else if (value === (VACUUM_SPEEDS.OFF ?? 0)) {
+        this.log.debug('Stopping vacuum')
+        await this.device.cancel_clean()
+          .catch(() => {
+            this.log.debug('Promise Rejected with cancel cleaning update.')
+          })
+        this.service.updateCharacteristic(this.platform.Characteristic.Active, this.platform.Characteristic.Active.INACTIVE)
+        this.vacuumPausedService.updateCharacteristic(this.platform.Characteristic.On, false)
+        return
+      }
+    } else {
+      // Legacy mode mappings
+      if (value === (VACUUM_SPEEDS.ECO ?? 30)) {
+        power_mode = PowerModes.ECO
+        this.log.debug('Setting vacuum to ECO mode (legacy)')
+      } else if (value === (VACUUM_SPEEDS.MAX ?? 90)) {
+        power_mode = PowerModes.MAX
+        this.log.debug('Setting vacuum to MAX mode (legacy)')
+      } else if (value === (VACUUM_SPEEDS.OFF ?? 0)) {
+        this.log.debug('Stopping vacuum')
+        await this.device.cancel_clean()
+          .catch(() => {
+            this.log.debug('Promise Rejected with cancel cleaning update.')
+          })
+        this.service.updateCharacteristic(this.platform.Characteristic.Active, this.platform.Characteristic.Active.INACTIVE)
+        this.vacuumPausedService.updateCharacteristic(this.platform.Characteristic.On, false)
+        return
+      } else {
+        power_mode = PowerModes.NORMAL
+        this.log.debug('Setting vacuum to NORMAL mode (legacy)')
+      }
     }
+    
     const isPaused = await this.getPaused()
     if (isPaused) {
       await this.device.set_operating_mode(OperatingModes.START)

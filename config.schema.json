@@ -54,6 +54,13 @@
         "type": "integer",
         "required": false,
         "default": 30000
+      },
+      "enhancedVacuumMode": {
+        "title": "Enhanced Vacuum Mode",
+        "type": "boolean",
+        "required": false,
+        "default": true,
+        "description": "Use improved power level mappings and vacuum-optimized behavior. Prepares for future robot vacuum service support."
       }
     }
   },
@@ -108,7 +115,12 @@
         },
         "europe",
         "invertDockedStatus",
-        "dockedUpdateInterval"
+        "dockedUpdateInterval",
+        {
+          "type": "help",
+          "helpvalue": "<h5>Enhanced Vacuum Mode</h5><em class='primary-text'>Enables improved vacuum behavior with better power level mappings (25%=Eco, 50%=Normal, 100%=Max). This prepares your setup for future native HomeKit robot vacuum support.</em>"
+        },
+        "enhancedVacuumMode"
       ]
     }
   ]
