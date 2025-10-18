@@ -39,10 +39,7 @@ Configure Homebridge. The config file for SharkIQ should include:
         "[Shark Vacuum DSN]",
         "..."
       ],
-      "europe": false,
-      "invertDockedStatus": false,
-      "dockedUpdateInterval": 30000,
-      "enhancedVacuumMode": true
+      "europe": false
     }
   ]
 }
@@ -78,6 +75,15 @@ The `enhancedVacuumMode` option (enabled by default) provides improved vacuum be
 
 ## Homebridge 2.0.0+ Compatibility
 
+This release of the plugin is Matter-only and requires a Homebridge runtime that exposes the Matter API.
+Minimum tested Homebridge: 2.0.0-alpha.28 or later. If your Homebridge installation does not support Matter, this plugin will log an error and will not start.
+
+This plugin uses Matter external accessories (Robotic Vacuum Cleaner) to integrate with the platform and no longer publishes HAP platform accessories.
+
+If you rely on the legacy HAP (HomeKit) path, keep using an older plugin release or run this code from a separate branch — this release intentionally removes HAP fallback.
+
+Compatibility notes and behavior:
+
 This plugin is compatible with Homebridge 2.0.0-alpha.28 and later versions, providing enhanced vacuum functionality while maintaining compatibility with current HomeKit limitations:
 
 - **Current Implementation**: Uses optimized FanV2 service with vacuum-specific behavior
@@ -109,3 +115,34 @@ Contributions would be very helpful to help this Homebridge plugin stay maintain
 ## Useful Links
 
 - [SharkIQ Python](https://github.com/JeffResc/sharkiq/)
+
+## Integration checklist — Matter
+
+Follow these steps to verify Matter integration locally on a Homebridge instance that supports Matter (Homebridge >= 2.0.0-alpha.28):
+
+1. Ensure your Homebridge runtime supports Matter and the `api.matter` external accessory API.
+2. Configure the plugin in `config.json` with your Shark credentials or `oAuthCode` and do NOT include deprecated HAP-only options (the plugin is Matter-only).
+3. Start Homebridge in a terminal and watch logs. You should see the plugin log the DSNs found on your account and then a "Publishing X robotic device(s) as external Matter accessories" message.
+4. After publishing, Homebridge should emit READY/COMMISSIONED events for each accessory. The plugin will perform an initial sync and start polling.
+5. From the Home app or a Matter controller, attempt these actions and verify the vacuum responds:
+
+- Start / Stop cleaning
+- Pause / Resume
+- Go Home (return to dock)
+- Select Areas (if your device supports area cleaning)
+
+6. Observe plugin logs for successful API calls and state updates. Look for `Matter accessory ready` and `Performing initial device sync` log lines.
+
+Quick troubleshooting:
+
+- If you see "requires Homebridge with Matter support" in logs, update Homebridge to a Matter-enabled build.
+- If actions fail, inspect network connectivity and plugin logs for Ayla API errors; the plugin now includes retries with exponential backoff for critical calls.
+
+Optional: run the prepublish checks locally (lint, build, docs) to validate everything before publishing:
+
+```bash
+# Run this in the project root (macOS / zsh)
+npm run prepublishOnly
+```
+
+If you'd like, I can add a short automated script that validates a sample run (requires a Matter-enabled Homebridge instance and credentials).

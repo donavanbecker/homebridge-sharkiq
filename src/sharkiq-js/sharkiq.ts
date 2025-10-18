@@ -2,11 +2,10 @@ import type { Logger } from 'homebridge'
 
 import type { AylaApi } from './ayla_api.js'
 
-import { Buffer, transcode } from 'node:buffer'
-
 import { safeJsonParse } from '../utils.js'
 import { global_vars } from './const.js'
 import { OperatingModes, PowerModes, Properties } from './properties.js'
+import { encodeRoomList } from './room_encoding.js'
 
 // Strip text from property name
 function _clean_property_name(raw_property_name: string): string {
@@ -343,31 +342,8 @@ class SharkIqVacuum {
 
   // Encode room list for specifying multiple rooms
   _encode_room_list(rooms): string {
-    if (!rooms) {
-      return '*'
-    } else if (rooms.length === 0) {
-      return '*'
-    }
-
     const room_list = this._get_device_room_list()
-
-    let header = '\x80\x01\x0B\xCA\x02'
-
-    let rooms_enc = ''
-    rooms.forEach((room) => {
-      rooms_enc += `${String.fromCharCode(room.length) + room}\n`
-    })
-    rooms_enc = rooms_enc.replace(/\n$/, '')
-
-    const footer = `\x1A${String.fromCharCode(room_list.identifier.length)}${room_list.identifier}`
-
-    const header_byte = String.fromCharCode(0 + 1 + rooms_enc.length + footer.length)
-    header += header_byte
-    header += '\n'
-
-    const latin1Buffer = transcode(Buffer.from(header + rooms_enc + footer), 'utf8', 'latin1')
-    const encoded = Buffer.from(latin1Buffer).toString('base64')
-    return encoded
+    return encodeRoomList(rooms, room_list.identifier)
   }
 
   // Get object of the device room list for starting a clean

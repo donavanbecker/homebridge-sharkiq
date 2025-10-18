@@ -30,7 +30,7 @@
       "vacuums": {
         "title": "SharkClean Vacuum Devicess",
         "type": "array",
-        "required": true,
+        "required": false,
         "items": {
           "title": "SharkClean DSN",
           "type": "string"
@@ -43,25 +43,14 @@
         "required": false,
         "default": false
       },
-      "invertDockedStatus": {
-        "title": "Invert Vacuum Docked Status",
-        "type": "boolean",
+      "pollInterval": {
+        "title": "Polling interval (seconds)",
+        "description": "How often to poll Shark devices for status updates. Set to 0 to disable polling.",
+        "type": "number",
         "required": false,
-        "default": false
-      },
-      "dockedUpdateInterval": {
-        "title": "Docked Update Interval",
-        "type": "integer",
-        "required": false,
-        "default": 30000
-      },
-      "enhancedVacuumMode": {
-        "title": "Enhanced Vacuum Mode",
-        "type": "boolean",
-        "required": false,
-        "default": true,
-        "description": "Use improved power level mappings and vacuum-optimized behavior. Prepares for future robot vacuum service support."
+        "default": 30
       }
+
     }
   },
   "layout": [
@@ -113,14 +102,7 @@
             }
           ]
         },
-        "europe",
-        "invertDockedStatus",
-        "dockedUpdateInterval",
-        {
-          "type": "help",
-          "helpvalue": "<h5>Enhanced Vacuum Mode</h5><em class='primary-text'>Enables improved vacuum behavior with better power level mappings (25%=Eco, 50%=Normal, 100%=Max). This prepares your setup for future native HomeKit robot vacuum support.</em>"
-        },
-        "enhancedVacuumMode"
+        "europe"
       ]
     }
   ]

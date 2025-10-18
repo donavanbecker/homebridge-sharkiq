@@ -7,7 +7,7 @@ export const VACUUM_SPEEDS = {
   ECO: 30,
   NORMAL: 60,
   MAX: 90,
-} as const;
+} as const
 
 export const TIMEOUTS = {
   LOGIN_DELAY: 1000,
@@ -15,4 +15,4 @@ export const TIMEOUTS = {
   PAUSED_UPDATE_DELAY: 100,
   DEFAULT_DOCKED_UPDATE_INTERVAL: 5000,
   TOKEN_EXPIRATION_BUFFER: 600,
-} as const;
+} as const

@@ -1,5 +1,8 @@
 name: Beta Release
 
+permissions:
+  contents: write
+
 on:
   push:
     branches: [beta-*.*.*, beta]
