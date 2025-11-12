@@ -2,7 +2,7 @@ import { Buffer } from 'node:buffer'
 
 import { describe, expect, it } from 'vitest'
 
-import { encodeRoomList } from '../src/sharkiq-js/room_encoding.js'
+import { encodeRoomList } from '../sharkiq-js/room_encoding.js'
 
 describe('encodeRoomList', () => {
   it('returns "*" for null or empty', () => {

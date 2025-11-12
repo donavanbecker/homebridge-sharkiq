@@ -10,9 +10,9 @@ import puppeteer from 'puppeteer-extra'
 import StealthPlugin from 'puppeteer-extra-plugin-stealth'
 
 import { generateURL, getAuthData, getOAuthData, removeFile, setAuthData } from './config.js'
+import { TIMEOUTS } from './constants.js'
 import { global_vars } from './sharkiq-js/const.js'
 import { addSeconds } from './utils.js'
-import { TIMEOUTS } from './constants.js'
 
 export class Login {
   public log: Logger
@@ -209,7 +209,7 @@ export class Login {
   private async loginCallback(code: string, oAuthData: OAuthData): Promise<void> {
     const oauthConfig = this.europe ? global_vars.EU_OAUTH : global_vars.OAUTH
     const loginUrl = this.europe ? global_vars.EU_LOGIN_URL : global_vars.LOGIN_URL
-    
+
     const data = {
       grant_type: 'authorization_code',
       client_id: oauthConfig.CLIENT_ID,
@@ -232,7 +232,7 @@ export class Login {
     if (!response.ok) {
       return Promise.reject(new Error(`Unable to get token data. HTTP ${response.status}`))
     }
-    const tokenData = await response.json()
+    const tokenData: any = await response.json()
     this.log.debug('Token Data:', JSON.stringify(tokenData))
 
     const reqData2 = {
@@ -250,7 +250,7 @@ export class Login {
     if (!response2.ok) {
       return Promise.reject(new Error(`Unable to get authorization tokens. HTTP ${response2.status}`))
     }
-    const aylaTokenData = await response2.json()
+    const aylaTokenData: any = await response2.json()
     const dateNow = new Date()
     aylaTokenData.expiration = addSeconds(dateNow, aylaTokenData.expires_in)
     this.log.debug('Setting auth data...', JSON.stringify(aylaTokenData))

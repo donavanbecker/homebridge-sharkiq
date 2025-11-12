@@ -71,7 +71,7 @@ class AylaApi {
     }
     reqData.headers = headers
     try {
-      const response = await fetch(url, reqData)
+      const response = await fetch(url, reqData as any)
       const statusCode = await response.status
       const responseText = await response.text()
       return {

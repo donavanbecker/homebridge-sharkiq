@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
 
-import { RoboticVacuumAccessory } from '../src/devices/RoboticVacuumAccessory.js'
+import { RoboticVacuumAccessory } from '../devices/RoboticVacuumAccessory.js'
 
 const mockApi: any = {
   matter: {

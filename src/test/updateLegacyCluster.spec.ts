@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest'
 
-import { BaseMatterAccessory } from '../src/devices/BaseMatterAccessory.js'
+import { BaseMatterAccessory } from '../devices/BaseMatterAccessory.js'
 
 // Minimal mock API exposing matter.updateAccessoryState spy
 const mockUpdate = vi.fn(async () => {})

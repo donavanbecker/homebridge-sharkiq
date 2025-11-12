@@ -34,9 +34,9 @@ export class RoboticVacuumAccessory extends BaseMatterAccessory {
   private activeTimers: NodeJS.Timeout[] = []
   // Cache the last known run mode so we only emit info logs when it changes
   private lastRunMode: number | null = null
-  // Cache battery state so we only emit info logs when battery or charging changes
-  private lastBatteryLevel: number | null = null
-  private lastChargingStatus: boolean | null = null
+  // Use protected for battery/charging cache to match base class
+  protected lastBatteryLevel: number | null = null
+  protected lastChargingStatus: boolean | null = null
   // Cache operational state so we only emit info logs when it changes
   private lastOperationalState: number | null = null
   // Cache last seen RSSI so we only log when it changes
@@ -504,6 +504,9 @@ export class RoboticVacuumAccessory extends BaseMatterAccessory {
             const pct = Number(batteryVal) || 0
             // chargingVal may be boolean-like or numeric
             const isCharging = chargingVal === 1 || chargingVal === true
+            // Update in-memory cache in base for log suppression
+            this.lastBatteryLevel = pct
+            this.lastChargingStatus = isCharging
             await this.updateState('power', { batteryLevel: Math.max(0, Math.min(100, pct)), charging: isCharging })
             this.logDebug(`battery updated: ${pct}% (charging: ${isCharging})`)
             // Only emit info logs when battery level or charging status actually changes

@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { RoboticVacuumAccessory } from '../src/devices/RoboticVacuumAccessory.js'
+import { RoboticVacuumAccessory } from '../devices/RoboticVacuumAccessory.js'
 
+// Minimal mock logger matching Homebridge Logger
 function createLogger() {
   const info = vi.fn()
   const debug = vi.fn()
@@ -10,6 +11,7 @@ function createLogger() {
   return { info, debug, warn, error }
 }
 
+// Minimal API mock with matter helpers used in constructor
 function createApi() {
   return {
     matter: {
@@ -25,7 +27,7 @@ function createApi() {
   } as any
 }
 
-describe('roboticVacuumAccessory.updateSelectedAreas', () => {
+describe('roboticVacuumAccessory.updateRunMode', () => {
   let log: any
   let api: any
   let acc: RoboticVacuumAccessory
@@ -34,26 +36,26 @@ describe('roboticVacuumAccessory.updateSelectedAreas', () => {
     log = createLogger()
     api = createApi()
     acc = new RoboticVacuumAccessory(api, log as any, undefined, 0)
-    acc.context.lastSelectedAreas = null
+    // clear any persisted context written during constructor
+    acc.context.lastRunMode = null
   })
 
-  it('should persist selection and only info-log on real changes (order-insensitive)', () => {
-    // initial set
-    acc.updateSelectedAreas([1, 2])
+  it('should emit info only when run mode changes and persist to context', () => {
+    // Initially lastRunMode is null
+    acc.updateRunMode(1)
     expect(log.info).toHaveBeenCalled()
-    expect(acc.context.lastSelectedAreas).toEqual([1, 2])
+    expect(acc.context.lastRunMode).toBe(1)
 
-    // same selection different order => no info
+    // Calling again with same mode should not call info again (only debug)
     log.info.mockClear()
-    log.debug.mockClear()
-    acc.updateSelectedAreas([2, 1])
+    acc.updateRunMode(1)
     expect(log.info).not.toHaveBeenCalled()
     expect(log.debug).toHaveBeenCalled()
 
-    // change selection
+    // Change to Idle
     log.info.mockClear()
-    acc.updateSelectedAreas([0, 2])
+    acc.updateRunMode(0)
     expect(log.info).toHaveBeenCalled()
-    expect(acc.context.lastSelectedAreas).toEqual([0, 2])
+    expect(acc.context.lastRunMode).toBe(0)
   })
 })

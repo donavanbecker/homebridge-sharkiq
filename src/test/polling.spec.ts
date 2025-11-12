@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { RoboticVacuumAccessory } from '../src/devices/RoboticVacuumAccessory.js'
+import { RoboticVacuumAccessory } from '../devices/RoboticVacuumAccessory.js'
 
 // Minimal mocks for Homebridge API and logger
 let mockRecorder: Array<any> = []

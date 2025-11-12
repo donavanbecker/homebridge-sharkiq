@@ -34,6 +34,9 @@ export interface BaseMatterAccessoryConfig {
  * Implements the MatterAccessory interface and provides common methods
  */
 export abstract class BaseMatterAccessory implements MatterAccessory {
+  /** In-memory cache for battery/charging state to suppress noisy logs */
+  protected lastBatteryLevel: number | null = null
+  protected lastChargingStatus: boolean | null = null
   // Required MatterAccessory properties
   public readonly uuid: string
   public readonly displayName: string
@@ -105,8 +108,15 @@ export abstract class BaseMatterAccessory implements MatterAccessory {
     // legacy cluster that requires translation, forward the update.
     const isLegacy = cluster === 'power' || cluster === 'diagnostics'
     if (this.clusters && (mapped in this.clusters) && !isLegacy) {
-      await this.api.matter.updateAccessoryState(this.uuid, mapped, attributes)
-      this.log.debug(`[${this.displayName}] Updated ${mapped} state (from ${cluster}):`, attributes)
+      try {
+        await this.api.matter.updateAccessoryState(this.uuid, mapped, attributes)
+        this.log.debug(`[${this.displayName}] Updated ${mapped} state (from ${cluster}):`, attributes)
+      } catch (e: any) {
+        // Matter may report the accessory as not registered when running
+        // in Child/Bridge configurations; surface as debug to avoid
+        // noisy stack traces while still recording the failure.
+        this.logDebug(`Failed to update ${mapped} state (from ${cluster}): ${e?.message || e}`)
+      }
       return
     }
 
@@ -128,24 +138,18 @@ export abstract class BaseMatterAccessory implements MatterAccessory {
       const charging = attributes.charging as boolean | number | undefined
 
       if (typeof batteryLevel === 'number') {
-        // Avoid noisy logs when nothing changed. Some accessories (like
-        // RoboticVacuumAccessory) persist lastBatteryLevel/lastChargingStatus
-        // in accessory.context so we can compare and only log on change.
-        try {
-          const persistedBattery = (this.context as any).lastBatteryLevel
-          const persistedCharging = (this.context as any).lastChargingStatus
-          const chargingBool = typeof charging === 'boolean' ? charging : (charging === 1)
-          const batteryChanged = typeof persistedBattery === 'number' ? Number(persistedBattery) !== Number(batteryLevel) : true
-          const chargingChanged = typeof persistedCharging === 'boolean' ? persistedCharging !== chargingBool : true
-          if (batteryChanged || chargingChanged) {
-            this.logInfo(`battery updated (via legacy 'power'): ${batteryLevel}%`)
-          } else {
-            this.logDebug(`legacy 'power' battery unchanged: ${batteryLevel}% (charging: ${String(chargingBool)})`)
-          }
-        } catch (e) {
-          // Fallback to logging if any error occurs while comparing
+        // Use in-memory cache to suppress noisy logs
+        const chargingBool = typeof charging === 'boolean' ? charging : (charging === 1)
+        const batteryChanged = this.lastBatteryLevel === null || this.lastBatteryLevel !== batteryLevel
+        const chargingChanged = this.lastChargingStatus === null || this.lastChargingStatus !== chargingBool
+        if (batteryChanged || chargingChanged) {
           this.logInfo(`battery updated (via legacy 'power'): ${batteryLevel}%`)
+        } else {
+          this.logDebug(`legacy 'power' battery unchanged: ${batteryLevel}% (charging: ${String(chargingBool)})`)
         }
+        // Always update the in-memory cache
+        this.lastBatteryLevel = batteryLevel
+        this.lastChargingStatus = chargingBool
       }
 
       if (runtimeTranslate && typeof charging !== 'undefined') {
@@ -160,8 +164,12 @@ export abstract class BaseMatterAccessory implements MatterAccessory {
           const isCharging = charging === true || charging === 1
           const opState = isCharging ? 65 : 66
           const chosen = targetExists ? target : 'rvcOperationalState'
-          await this.api.matter.updateAccessoryState(this.uuid, chosen, { operationalState: opState })
-          this.log.debug(`[${this.displayName}] Translated legacy 'power' charging=${String(charging)} -> ${chosen}=${opState}`)
+          try {
+            await this.api.matter.updateAccessoryState(this.uuid, chosen, { operationalState: opState })
+            this.log.debug(`[${this.displayName}] Translated legacy 'power' charging=${String(charging)} -> ${chosen}=${opState}`)
+          } catch (e: any) {
+            this.logDebug(`Failed to translate legacy 'power' charging=${String(charging)} -> ${chosen}: ${e?.message || e}`)
+          }
           return
         }
       }
@@ -181,8 +189,12 @@ export abstract class BaseMatterAccessory implements MatterAccessory {
         const rvcExists = this.clusters && ('rvcOperationalState' in this.clusters)
         if (targetExists || rvcExists) {
           const chosen = targetExists ? target : 'rvcOperationalState'
-          await this.api.matter.updateAccessoryState(this.uuid, chosen, { operationalState: 3 })
-          this.logWarn(`[${this.displayName}] Translated legacy 'diagnostics' errorCode=${errorCode} -> ${chosen}=3 (Error)`)
+          try {
+            await this.api.matter.updateAccessoryState(this.uuid, chosen, { operationalState: 3 })
+            this.logWarn(`[${this.displayName}] Translated legacy 'diagnostics' errorCode=${errorCode} -> ${chosen}=3 (Error)`)
+          } catch (e: any) {
+            this.logDebug(`Failed to translate legacy 'diagnostics' errorCode=${errorCode} -> ${chosen}: ${e?.message || e}`)
+          }
           return
         }
       }

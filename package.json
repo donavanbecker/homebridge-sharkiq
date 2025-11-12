@@ -29,7 +29,7 @@
   ],
   "main": "dist/index.js",
   "engines": {
-    "homebridge": ">=2.0.0-beta.36",
+    "homebridge": "^2.0.0-beta.52",
     "node": "^22 || ^24"
   },
   "scripts": {
@@ -42,7 +42,7 @@
     "prepublishOnly": "npm run lint && npm run build && npm run plugin-ui && npm run docs && npm run docs:lint",
     "postpublish": "npm run clean && npm ci",
     "clean": "shx rm -rf ./dist",
-    "test": "npm install",
+    "test": "vitest run",
     "test:watch": "vitest watch",
     "test-coverage": "npm run test -- --coverage",
     "docs": "typedoc",
@@ -52,34 +52,34 @@
     "access": "public"
   },
   "dependencies": {
-    "@homebridge/plugin-ui-utils": "^2.1.0",
-    "node-fetch": "^2.6.1",
-    "puppeteer": "^23.11.1",
+    "@homebridge/plugin-ui-utils": "^2.1.1-beta.0",
+    "node-fetch": "^3.3.2",
+    "puppeteer": "^24.29.1",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^6.0.0",
-    "@eslint/compat": "^1.4.0",
+    "@antfu/eslint-config": "^6.2.0",
+    "@eslint/compat": "^1.4.1",
     "@eslint/eslintrc": "^3.3.1",
     "@types/aes-js": "^3.1.4",
     "@types/debug": "^4.1.12",
     "@types/fs-extra": "^11.0.4",
     "@types/mdast": "^4.0.4",
-    "@types/node": "^24.8.1",
+    "@types/node": "^24.10.1",
     "@types/semver": "^7.7.1",
     "@types/source-map-support": "^0.5.10",
-    "@vitest/coverage-v8": "^3.2.4",
-    "eslint": "^9.38.0",
+    "@vitest/coverage-v8": "^4.0.8",
+    "eslint": "^9.39.1",
     "eslint-plugin-format": "^1.0.2",
     "eslint-plugin-import": "^2.32.0",
-    "homebridge": "^2.0.0-beta.36",
-    "homebridge-config-ui-x": "5.8.0",
-    "nodemon": "^3.1.10",
+    "homebridge": "^2.0.0-beta.52",
+    "homebridge-config-ui-x": "5.9.0",
+    "nodemon": "^3.1.11",
     "shx": "^0.4.0",
     "ts-node": "^10.9.2",
     "typedoc": "^0.28.14",
     "typescript": "^5.9.3",
-    "vitest": "^3.0.7"
+    "vitest": "^4.0.8"
   }
 }
