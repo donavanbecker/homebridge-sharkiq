@@ -422,12 +422,15 @@ export class RoboticVacuumAccessory extends BaseMatterAccessory {
     this.pollInterval = setInterval(async () => {
       try {
         // Request a full update
+        this.logDebug('Polling: requesting full update from Shark device...')
         await (this.sharkDevice as any).update([])
+        this.logDebug('Polling: Shark device property_values after update:', (this.sharkDevice as any).property_values)
 
         // Update run/operating mode
         const opMode = (this.sharkDevice as any).operating_mode?.() ?? null
         const powerMode = (this.sharkDevice as any).power_mode?.() ?? null
         const docked = (this.sharkDevice as any).docked_status?.() ?? null
+        this.logDebug('Polling: opMode:', opMode, 'powerMode:', powerMode, 'docked:', docked)
 
         // Map operating mode to Matter run/operational state
         if (docked !== null && docked === 1) {
@@ -467,6 +470,7 @@ export class RoboticVacuumAccessory extends BaseMatterAccessory {
         if (typeof (this.sharkDevice as any).get_room_list === 'function') {
           const rooms: string[] = (this.sharkDevice as any).get_room_list() || []
           const ids = rooms.map((_, idx) => idx)
+          this.logDebug('Polling: device rooms:', rooms, 'room ids:', ids)
           this.updateSelectedAreas(ids)
         }
 
@@ -477,6 +481,8 @@ export class RoboticVacuumAccessory extends BaseMatterAccessory {
           let chargingVal: any = null
           let errVal: any = null
           let errText: string | null = null
+
+          this.logDebug('Polling: property_values before battery/charging/diagnostics extraction:', (this.sharkDevice as any).property_values)
 
           if ((this.sharkDevice as any).battery_capacity && typeof (this.sharkDevice as any).battery_capacity === 'function') {
             batteryVal = (this.sharkDevice as any).battery_capacity()
@@ -499,6 +505,8 @@ export class RoboticVacuumAccessory extends BaseMatterAccessory {
           } else if (typeof (this.sharkDevice as any).get_property_value === 'function') {
             errVal = (this.sharkDevice as any).get_property_value(Properties.ERROR_CODE)
           }
+
+          this.logDebug('Polling: extracted batteryVal:', batteryVal, 'chargingVal:', chargingVal, 'errVal:', errVal, 'errText:', errText)
 
           if (batteryVal !== null && typeof batteryVal !== 'undefined') {
             const pct = Number(batteryVal) || 0
@@ -523,6 +531,7 @@ export class RoboticVacuumAccessory extends BaseMatterAccessory {
             const rssi = (this.sharkDevice as any).get_property_value
               ? (this.sharkDevice as any).get_property_value(Properties.RSSI)
               : null
+            this.logDebug('Polling: extracted RSSI:', rssi)
             if (rssi !== null && typeof rssi !== 'undefined') {
               const r = Number(rssi)
               await this.updateState('diagnostics', { ...(null as any), rssi: r })
@@ -555,6 +564,7 @@ export class RoboticVacuumAccessory extends BaseMatterAccessory {
             const cleanComplete = (this.sharkDevice as any).get_property_value
               ? (this.sharkDevice as any).get_property_value(Properties.CLEAN_COMPLETE)
               : null
+            this.logDebug('Polling: extracted cleanComplete:', cleanComplete)
             if (cleanComplete === 1 || cleanComplete === true) {
               // When cleaning completes, set run mode to Idle and operational to Stopped
               this.updateRunMode(0)

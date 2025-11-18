@@ -144,6 +144,7 @@ class SharkIqVacuum {
 
     const end_point = this.set_property_endpoint(`SET_${property_name}`)
     const data = { datapoint: { value } }
+    this.log.debug(`[SharkIqVacuum] set_property_value: endpoint=${end_point}, property=${property_name}, value=${JSON.stringify(value)}, payload=${JSON.stringify(data)}`)
     try {
       const auth_header = await this.ayla_api.auth_header()
       const resp = await this.ayla_api.makeRequest('POST', end_point, data, auth_header)
