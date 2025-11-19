@@ -691,8 +691,26 @@ export class RoboticVacuumAccessory extends BaseMatterAccessory {
     const modeStr = modes[newMode] || `Unknown (mode=${newMode})`
     this.logInfo(`changing clean mode to: ${modeStr}`)
     if (this.sharkDevice) {
-      // Shark API doesn't expose a direct clean-mode setter here; keep local state and log.
-      this.logInfo('Clean mode change requested for Shark device (not implemented in API wrapper).')
+      // Map newMode to Power_Mode value
+      // Only handle Vacuum, Eco, Max (indices may need to be adjusted based on your clean mode mapping)
+      let powerMode: number | undefined
+      if (modeStr === 'Vacuum') {
+        powerMode = 0 // NORMAL
+      } else if (modeStr === 'Eco Vacuum') {
+        powerMode = 1 // ECO
+      } else if (modeStr === 'Max Clean') {
+        powerMode = 2 // MAX
+      }
+      if (typeof powerMode !== 'undefined') {
+        try {
+          await (this.sharkDevice as any).set_property_value('Power_Mode', powerMode)
+          this.logInfo(`Set Power_Mode to ${powerMode} (${modeStr}) on Shark device.`)
+        } catch (e) {
+          this.logError('Error setting Power_Mode on Shark device:', e)
+        }
+      } else {
+        this.logInfo('Clean mode change requested for Shark device, but mode is not mapped to Power_Mode.')
+      }
     }
   }
 
