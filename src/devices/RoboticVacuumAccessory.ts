@@ -94,6 +94,30 @@ export class RoboticVacuumAccessory extends BaseMatterAccessory {
       }
     })()
 
+    // Determine supported clean modes for this vacuum
+
+    // Default: only show Vacuum, Eco, Max if supported
+    let supportedCleanModes = []
+    const allModes = [
+      { label: 'Vacuum', mode: 0, modeTags: [{ value: 16385 }] },
+      { label: 'Eco', mode: 12, modeTags: [{ value: 4 }, { value: 16385 }] },
+      { label: 'Max', mode: 7, modeTags: [{ value: 7 }, { value: 16385 }] },
+    ]
+    // Check which power modes are supported by the device
+    let powerModesSupported = [0] // Always support normal
+    if (sharkDevice && typeof (sharkDevice as any).get_property_value === 'function') {
+      const powerModeVal = (sharkDevice as any).get_property_value('Power_Mode')
+      // If device reports a valid power mode, assume it supports all three
+      if (typeof powerModeVal !== 'undefined' && powerModeVal !== null) {
+        powerModesSupported = [0, 1, 2] // Normal, Eco, Max
+      }
+    }
+    // Map: 0=Vacuum, 1=Eco, 2=Max
+    if (powerModesSupported.includes(0)) supportedCleanModes.push(allModes[0])
+    if (powerModesSupported.includes(1)) supportedCleanModes.push(allModes[1])
+    if (powerModesSupported.includes(2)) supportedCleanModes.push(allModes[2])
+    log.info(`[${displayName}] Supported clean modes: ${supportedCleanModes.map(m => m.label).join(', ')}`)
+
     super(api, log, {
       uuid: api.matter.uuid.generate(serialNumber),
       displayName,
@@ -103,7 +127,6 @@ export class RoboticVacuumAccessory extends BaseMatterAccessory {
       model,
       firmwareRevision,
       hardwareRevision: '1.0.0',
-      // Persist useful metadata in accessory.context so cached accessories retain DSN/model/etc.
       context: {
         serialNumber,
         name: displayName,
@@ -111,7 +134,6 @@ export class RoboticVacuumAccessory extends BaseMatterAccessory {
         vacSerial: (sharkDevice && ((sharkDevice as any).vac_serial_number || (sharkDevice as any)._vac_serial_number)) || null,
         oemModel: (sharkDevice && ((sharkDevice as any).oem_model_number || (sharkDevice as any)._oem_model_number)) || null,
         pollIntervalMs: typeof pollIntervalMs === 'number' ? pollIntervalMs : null,
-        // Cached runtime values persisted so they survive restarts
         lastRunMode: null,
         lastBatteryLevel: null,
         lastChargingStatus: null,
@@ -120,80 +142,33 @@ export class RoboticVacuumAccessory extends BaseMatterAccessory {
         lastSelectedAreas: null,
         lastCleanMode: null,
       },
-
       clusters: {
-        // Run Mode: Controls what the vacuum is doing (Idle, Cleaning, Mapping)
         rvcRunMode: {
           supportedModes: [
-            { label: 'Idle', mode: 0, modeTags: [{ value: 16384 }] }, // RvcRunMode.ModeTag.Idle
-            { label: 'Cleaning', mode: 1, modeTags: [{ value: 16385 }] }, // RvcRunMode.ModeTag.Cleaning
-            { label: 'Mapping', mode: 2, modeTags: [{ value: 16386 }] }, // RvcRunMode.ModeTag.Mapping
+            { label: 'Idle', mode: 0, modeTags: [{ value: 16384 }] },
+            { label: 'Cleaning', mode: 1, modeTags: [{ value: 16385 }] },
+            { label: 'Mapping', mode: 2, modeTags: [{ value: 16386 }] },
           ],
           currentMode: 0,
         },
-        // Clean Mode: Controls HOW the vacuum cleans
-        // You can combine semantic tags (0-9) with functional tags (16384-16386)
-        // Available semantic tags: Auto, Quick, Quiet, LowNoise, LowEnergy, Vacation, Min, Max, Night, Day
-        // Available functional tags: DeepClean, Vacuum, Mop
         rvcCleanMode: {
-          supportedModes: [
-            // Basic functional modes
-            { label: 'Vacuum', mode: 0, modeTags: [{ value: 16385 }] }, // Vacuum
-            { label: 'Mop', mode: 1, modeTags: [{ value: 16386 }] }, // Mop
-            { label: 'Vacuum & Mop', mode: 2, modeTags: [{ value: 16385 }, { value: 16386 }] }, // Both
-
-            // Deep clean modes
-            { label: 'Deep Clean', mode: 3, modeTags: [{ value: 16384 }] }, // DeepClean
-            { label: 'Deep Vacuum', mode: 4, modeTags: [{ value: 16384 }, { value: 16385 }] }, // DeepClean + Vacuum
-            { label: 'Deep Mop', mode: 5, modeTags: [{ value: 16384 }, { value: 16386 }] }, // DeepClean + Mop
-
-            // Intensity modes
-            { label: 'Quick Clean', mode: 6, modeTags: [{ value: 1 }, { value: 16385 }] }, // Quick + Vacuum
-            { label: 'Max Clean', mode: 7, modeTags: [{ value: 7 }, { value: 16385 }] }, // Max + Vacuum
-            { label: 'Min Clean', mode: 8, modeTags: [{ value: 6 }, { value: 16385 }] }, // Min + Vacuum
-
-            // Quiet modes
-            { label: 'Quiet Vacuum', mode: 9, modeTags: [{ value: 2 }, { value: 16385 }] }, // Quiet + Vacuum
-            { label: 'Quiet Mop', mode: 10, modeTags: [{ value: 2 }, { value: 16386 }] }, // Quiet + Mop
-            { label: 'Night Mode', mode: 11, modeTags: [{ value: 8 }, { value: 16385 }] }, // Night + Vacuum
-
-            // Energy efficient
-            { label: 'Eco Vacuum', mode: 12, modeTags: [{ value: 4 }, { value: 16385 }] }, // LowEnergy + Vacuum
-            { label: 'Eco Mop', mode: 13, modeTags: [{ value: 4 }, { value: 16386 }] }, // LowEnergy + Mop
-
-            // Auto mode
-            { label: 'Auto', mode: 14, modeTags: [{ value: 0 }, { value: 16385 }] }, // Auto + Vacuum
-          ],
-          currentMode: 0, // start with basic Vacuum
+          supportedModes: supportedCleanModes,
+          currentMode: 0,
         },
-        // Operational State: Current state (Stopped, Running, Paused, Error, etc.)
         rvcOperationalState: {
           operationalStateList: [
-            { operationalStateId: 0 }, // stopped (standard label from Matter spec)
-            { operationalStateId: 1 }, // running
-            { operationalStateId: 2 }, // paused
-            { operationalStateId: 3 }, // error
-            { operationalStateId: 64 }, // seeking charger
-            { operationalStateId: 65 }, // charging
-            { operationalStateId: 66 }, // docked
+            { operationalStateId: 0 },
+            { operationalStateId: 1 },
+            { operationalStateId: 2 },
+            { operationalStateId: 3 },
+            { operationalStateId: 64 },
+            { operationalStateId: 65 },
+            { operationalStateId: 66 },
           ],
-          operationalState: 66, // start docked
+          operationalState: 66,
         },
-        // Service Area: Room/zone selection for targeted cleaning
         serviceArea: serviceAreaCluster,
-        // Legacy informational clusters are intentionally NOT registered here.
-        // updateState() will special-case 'power' and 'diagnostics' and
-        // translate or skip updates when the accessory does not actually
-        // support those clusters. Registering empty legacy clusters can
-        // result in Behavior ID errors on Matter servers that don't expose
-        // those behaviors, so we avoid adding them.
       },
-      // Map legacy cluster names to supported clusters. This allows callers
-      // that still use legacy names to be translated to the correct
-      // cluster when appropriate. If the mapped target is not present on
-      // the accessory, BaseMatterAccessory.updateState() will safely skip
-      // or translate attributes instead of forwarding an update that
-      // would cause a Behavior ID error on the Matter server.
       clusterNameMap: {
         power: 'rvcOperationalState',
         diagnostics: 'rvcOperationalState',
