@@ -148,6 +148,7 @@ class SharkIqVacuum {
     try {
       const auth_header = await this.ayla_api.auth_header()
       const resp = await this.ayla_api.makeRequest('POST', end_point, data, auth_header)
+      this.log.debug(`[SharkIqVacuum] API response for set_property_value: status=${resp.status}, ok=${resp.ok}, response=${typeof resp.response === 'string' ? resp.response : JSON.stringify(resp.response)}`)
       if (resp.ok !== true) {
         // Check if this is an authentication error (401) that requires token refresh
         if (resp.status === 401) {
