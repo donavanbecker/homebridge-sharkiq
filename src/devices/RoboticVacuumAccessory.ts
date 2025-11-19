@@ -97,7 +97,12 @@ export class RoboticVacuumAccessory extends BaseMatterAccessory {
     // Determine supported clean modes for this vacuum
 
     // Default: only show Vacuum, Eco, Max if supported
-    let supportedCleanModes = []
+    interface CleanMode {
+      label: string
+      mode: number
+      modeTags: { value: number }[]
+    }
+    const supportedCleanModes: CleanMode[] = []
     const allModes = [
       { label: 'Vacuum', mode: 0, modeTags: [{ value: 16385 }] },
       { label: 'Eco', mode: 12, modeTags: [{ value: 4 }, { value: 16385 }] },
@@ -113,9 +118,17 @@ export class RoboticVacuumAccessory extends BaseMatterAccessory {
       }
     }
     // Map: 0=Vacuum, 1=Eco, 2=Max
-    if (powerModesSupported.includes(0)) supportedCleanModes.push(allModes[0])
-    if (powerModesSupported.includes(1)) supportedCleanModes.push(allModes[1])
-    if (powerModesSupported.includes(2)) supportedCleanModes.push(allModes[2])
+    if (powerModesSupported.includes(0)) {
+      supportedCleanModes.push(allModes[0])
+    }
+
+    if (powerModesSupported.includes(1)) {
+      supportedCleanModes.push(allModes[1])
+    }
+
+    if (powerModesSupported.includes(2)) {
+      supportedCleanModes.push(allModes[2])
+    }
     log.info(`[${displayName}] Supported clean modes: ${supportedCleanModes.map(m => m.label).join(', ')}`)
 
     super(api, log, {
