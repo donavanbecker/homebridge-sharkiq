@@ -37,4 +37,34 @@ function safeJsonParse(jsonString: string): { success: boolean; data?: any; erro
   }
 }
 
-export { addSeconds, isValidDate, safeJsonParse, subtractSeconds }
+/**
+ * Factory function that creates a proxy constructor which selects between the
+ * HAP platform and the Matter platform at runtime.
+ *
+ * Selection logic:
+ * 1. If `enableMatter` and `preferMatter` are set in config AND the Homebridge
+ *    API reports that Matter is both available and enabled, the Matter platform
+ *    is instantiated.
+ * 2. Otherwise the HAP platform is instantiated as a fallback.
+ *
+ * @param HAPPlatform  - The existing HAP (HomeKit Accessory Protocol) platform class.
+ * @param MatterPlatform - The Matter platform class to use when Matter is available.
+ * @returns A constructor that Homebridge can register with `api.registerPlatform`.
+ */
+function createPlatformProxy(HAPPlatform: any, MatterPlatform: any): any {
+  return class SharkIQPlatformProxy {
+    constructor(log: any, config: any, api: any) {
+      const preferMatter = config?.preferMatter ?? true
+      const enableMatter = config?.enableMatter ?? true
+      const matterAvailable = !!(api?.isMatterAvailable?.() && api?.isMatterEnabled?.())
+
+      if (enableMatter && preferMatter && MatterPlatform && matterAvailable) {
+        return new MatterPlatform(log, config, api)
+      }
+
+      return new HAPPlatform(log, config, api)
+    }
+  }
+}
+
+export { addSeconds, createPlatformProxy, isValidDate, safeJsonParse, subtractSeconds }

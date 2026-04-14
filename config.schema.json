@@ -54,6 +54,20 @@
         "type": "integer",
         "required": false,
         "default": 30000
+      },
+      "preferMatter": {
+        "title": "Prefer Matter",
+        "description": "When enabled, the plugin will use the Homebridge Matter API (requires Homebridge v2.0+ with Matter enabled). Falls back to HAP if Matter is unavailable.",
+        "type": "boolean",
+        "required": false,
+        "default": true
+      },
+      "enableMatter": {
+        "title": "Enable Matter",
+        "description": "Allow the plugin to use Homebridge Matter support when available. Set to false to always use HAP accessories.",
+        "type": "boolean",
+        "required": false,
+        "default": true
       }
     }
   },
@@ -109,6 +123,20 @@
         "europe",
         "invertDockedStatus",
         "dockedUpdateInterval"
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "Matter Settings",
+      "expandable": true,
+      "expanded": false,
+      "items": [
+        {
+          "type": "help",
+          "helpvalue": "<h5>Homebridge Matter Support</h5><em class='primary-text'>These options require Homebridge v2.0 or later with Matter enabled. If Matter is unavailable the plugin will automatically fall back to standard HomeKit (HAP) accessories.</em>"
+        },
+        "preferMatter",
+        "enableMatter"
       ]
     }
   ]
