@@ -98,7 +98,10 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
 
   // Add vacuums to Homebridge.
   discoverDevices(): void {
-    const devices: PlatformAccessory[] = []
+    const externalAccessory = this.config.externalAccessory || false
+    const newAccessories: PlatformAccessory[] = []
+    const activeAccessories: PlatformAccessory[] = []
+    const cachedActiveAccessories: PlatformAccessory[] = []
     const unusedDeviceAccessories = this.accessories
 
     const invertDockedStatus = this.config.invertDockedStatus || false
@@ -109,9 +112,10 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
 
       if (accessory) {
         unusedDeviceAccessories.splice(unusedDeviceAccessories.indexOf(accessory), 1)
+        cachedActiveAccessories.push(accessory)
       } else {
         accessory = new this.api.platformAccessory(vacuumDevice._name.toString(), uuid)
-        devices.push(accessory)
+        newAccessories.push(accessory)
       }
 
       let accessoryInformationService = accessory.getService(this.Service.AccessoryInformation)
@@ -123,10 +127,29 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
         .setCharacteristic(this.Characteristic.Model, vacuumDevice._vac_model_number || 'Unknown')
         .setCharacteristic(this.Characteristic.SerialNumber, vacuumDevice._dsn)
 
+      activeAccessories.push(accessory)
       new SharkIQAccessory(this, accessory, vacuumDevice, this.api.hap.uuid, this.log, invertDockedStatus, dockedUpdateInterval)
     })
 
-    this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, devices)
+    if (externalAccessory) {
+      if (cachedActiveAccessories.length > 0) {
+        this.log.info(`Unregistering ${cachedActiveAccessories.length} bridged accessory(ies) before external publishing.`)
+        this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, cachedActiveAccessories)
+        cachedActiveAccessories.forEach((cachedAccessory) => {
+          const index = this.accessories.indexOf(cachedAccessory)
+          if (index >= 0) {
+            this.accessories.splice(index, 1)
+          }
+        })
+      }
+
+      // Publish all active accessories (new and cached) as external standalone devices.
+      // Each will have its own pairing code and appear independently in HomeKit.
+      this.log.info(`Publishing ${activeAccessories.length} vacuum(s) as external accessory(ies).`)
+      this.api.publishExternalAccessories(PLUGIN_NAME, activeAccessories)
+    } else {
+      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, newAccessories)
+    }
 
     unusedDeviceAccessories.forEach((unusedDeviceAccessory) => {
       this.log.info(`Removing unused accessory with name ${unusedDeviceAccessory.displayName}`)

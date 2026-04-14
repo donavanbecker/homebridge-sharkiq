@@ -2,10 +2,10 @@ import type { API, Logger, PlatformAccessory, PlatformConfig } from 'homebridge'
 
 import type { SharkIqVacuum } from './sharkiq-js/sharkiq.js'
 
-import { SharkIQPlatform } from './platform.js'
-import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
 import { TIMEOUTS } from './constants.js'
 import { createPromiseRejectionHandler } from './errorHandling.js'
+import { SharkIQPlatform } from './platform.js'
+import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
 import { OperatingModes, Properties } from './sharkiq-js/sharkiq.js'
 
 /**
@@ -120,6 +120,8 @@ export class SharkIQMatterPlatform extends SharkIQPlatform {
    */
   private _registerMatterDevices(matterApi: any): void {
     const accessoriesToRegister: any[] = []
+    const activeMatterAccessories: any[] = []
+    const cachedActiveMatterAccessories: any[] = []
     const unusedMatterAccessories = new Map(this.matterAccessories)
 
     this.vacuumDevices.forEach((vacuumDevice) => {
@@ -168,23 +170,36 @@ export class SharkIQMatterPlatform extends SharkIQPlatform {
         this.matterAccessories.set(uuid, matterAccessory)
         this.log.info(`Preparing new Matter accessory for vacuum: ${vacuumDevice._name.toString()} (${vacuumDevice._dsn})`)
       } else {
+        cachedActiveMatterAccessories.push(matterAccessory)
         this.log.info(`Restoring cached Matter accessory for vacuum: ${vacuumDevice._name.toString()} (${vacuumDevice._dsn})`)
       }
+
+      activeMatterAccessories.push(matterAccessory)
 
       // Start a polling loop to push live vacuum state into Matter cluster attributes
       this._startVacuumPolling(matterApi, uuid, vacuumDevice)
     })
 
     // Register new Matter accessories with Homebridge
-    if (accessoriesToRegister.length > 0) {
-      try {
+    try {
+      const externalAccessory = this.config.externalAccessory || false
+      if (externalAccessory && typeof matterApi.publishExternalAccessories === 'function') {
+        if (cachedActiveMatterAccessories.length > 0
+          && typeof matterApi.unregisterPlatformAccessories === 'function') {
+          this.log.info(`Unregistering ${cachedActiveMatterAccessories.length} bridged Matter accessory(ies) before external publishing.`)
+          matterApi.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, cachedActiveMatterAccessories)
+        }
+
+        matterApi.publishExternalAccessories(PLUGIN_NAME, activeMatterAccessories)
+        this.log.info(`Published ${activeMatterAccessories.length} Matter accessory(ies) as external device(s).`)
+      } else if (accessoriesToRegister.length > 0) {
         matterApi.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, accessoriesToRegister)
         this.log.info(`Registered ${accessoriesToRegister.length} Matter accessory(ies) with Homebridge.`)
-      } catch (error) {
-        this.log.warn('Failed to register Matter accessories; falling back to HAP.', error)
-        super.discoverDevices()
-        return
       }
+    } catch (error) {
+      this.log.warn('Failed to register Matter accessories; falling back to HAP.', error)
+      super.discoverDevices()
+      return
     }
 
     // Remove any Matter accessories whose vacuums are no longer in the config
@@ -276,4 +291,3 @@ export class SharkIQMatterPlatform extends SharkIQPlatform {
     setInterval(() => void updateMatterState(), dockedUpdateInterval)
   }
 }
-
