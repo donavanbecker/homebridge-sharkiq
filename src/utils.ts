@@ -1,3 +1,7 @@
+import type { PlatformConfig } from 'homebridge'
+
+import { DEFAULT_CONFIG, type SharkIQPluginConfig } from './settings.js'
+
 // Add seconds to a date
 function addSeconds(date: Date, seconds: number): Date {
   return new Date(date.getTime() + seconds * 1000)
@@ -47,22 +51,26 @@ function safeJsonParse(jsonString: string): { success: boolean; data?: any; erro
  *    is instantiated.
  * 2. Otherwise the HAP platform is instantiated as a fallback.
  *
+ * {@link DEFAULT_CONFIG} is merged with the user config to apply defaults for
+ * `preferMatter` and `enableMatter` before the platform is selected.
+ *
  * @param HAPPlatform  - The existing HAP (HomeKit Accessory Protocol) platform class.
  * @param MatterPlatform - The Matter platform class to use when Matter is available.
  * @returns A constructor that Homebridge can register with `api.registerPlatform`.
  */
 function createPlatformProxy(HAPPlatform: any, MatterPlatform: any): any {
   return class SharkIQPlatformProxy {
-    constructor(log: any, config: any, api: any) {
-      const preferMatter = config?.preferMatter ?? true
-      const enableMatter = config?.enableMatter ?? true
+    constructor(log: any, config: PlatformConfig, api: any) {
+      const cfg: SharkIQPluginConfig & PlatformConfig = { ...DEFAULT_CONFIG, ...config }
+      const preferMatter = cfg.preferMatter ?? true
+      const enableMatter = cfg.enableMatter ?? true
       const matterAvailable = !!(api?.isMatterAvailable?.() && api?.isMatterEnabled?.())
 
       if (enableMatter && preferMatter && MatterPlatform && matterAvailable) {
-        return new MatterPlatform(log, config, api)
+        return new MatterPlatform(log, cfg, api)
       }
 
-      return new HAPPlatform(log, config, api)
+      return new HAPPlatform(log, cfg, api)
     }
   }
 }
