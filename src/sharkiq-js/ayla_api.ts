@@ -1,9 +1,10 @@
 import type { Logger } from 'homebridge'
+import type { RequestInit } from 'undici'
 
 import type { AuthData } from '../type.js'
 import type { DeviceDct } from './sharkiq.js'
 
-import fetch from 'node-fetch'
+import { fetch } from 'undici'
 
 import { getAuthData, setAuthData } from '../config.js'
 import { TIMEOUTS } from '../constants.js'
@@ -72,7 +73,7 @@ class AylaApi {
     reqData.headers = headers
     try {
       const response = await fetch(url, reqData)
-      const statusCode = await response.status
+      const statusCode = response.status
       const responseText = await response.text()
       return {
         status: statusCode,

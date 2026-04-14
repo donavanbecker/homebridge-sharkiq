@@ -11,12 +11,14 @@ export interface SharkIQPluginConfig {
   europe?: boolean
   invertDockedStatus?: boolean
   dockedUpdateInterval?: number
+  externalAccessory?: boolean
   preferMatter?: boolean
   enableMatter?: boolean
   [key: string]: unknown
 }
 
 export const DEFAULT_CONFIG: Partial<SharkIQPluginConfig> = {
+  externalAccessory: false,
   preferMatter: true,
   enableMatter: true,
 }

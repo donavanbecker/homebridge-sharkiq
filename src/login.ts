@@ -5,7 +5,7 @@ import type { OAuthData } from './type.js'
 import process from 'node:process'
 import { setTimeout } from 'node:timers/promises'
 
-import fetch from 'node-fetch'
+import { fetch, type RequestInit } from 'undici'
 import puppeteer from 'puppeteer-extra'
 import StealthPlugin from 'puppeteer-extra-plugin-stealth'
 
@@ -232,7 +232,7 @@ export class Login {
     if (!response.ok) {
       return Promise.reject(new Error(`Unable to get token data. HTTP ${response.status}`))
     }
-    const tokenData = await response.json()
+    const tokenData = await response.json() as { id_token: string }
     this.log.debug('Token Data:', JSON.stringify(tokenData))
 
     const reqData2 = {
@@ -245,17 +245,17 @@ export class Login {
         app_secret: this.app_secret,
         token: tokenData.id_token,
       }),
-    }
+    } as RequestInit
     const response2 = await fetch(`${loginUrl}/api/v1/token_sign_in`, reqData2)
     if (!response2.ok) {
       return Promise.reject(new Error(`Unable to get authorization tokens. HTTP ${response2.status}`))
     }
-    const aylaTokenData = await response2.json()
+    const aylaTokenData = await response2.json() as { expires_in: number } & Record<string, any>
     const dateNow = new Date()
     aylaTokenData.expiration = addSeconds(dateNow, aylaTokenData.expires_in)
     this.log.debug('Setting auth data...', JSON.stringify(aylaTokenData))
     try {
-      await setAuthData(this.auth_file, aylaTokenData)
+      await setAuthData(this.auth_file, aylaTokenData as unknown as import('./type').AuthData)
     } catch (error) {
       return Promise.reject(new Error(`${error}`))
     }
