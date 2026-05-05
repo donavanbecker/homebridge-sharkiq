@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/)
 
+## [1.5.0](https://github.com/homebridge-plugins/homebridge-sharkiq/compare/tag/v1.5.0) (2026-05-04)
+
+### Enhancements
+- Add and document Matter and HomeKit integration guidance.
+- Add implementation reference for Home Assistant SharkIQ integration.
+- Add Homebridge UI OAuth Assistant to generate login URL and exchange callback code.
+
+### Bug Fixes
+- Replace `undici` usage with native Node.js fetch APIs.
+
+### Maintenance
+- Remove unused dependencies and type packages.
+- Refresh dependency versions and lockfile metadata.
+- Remove Puppeteer-based login automation dependencies.
+
+**Full Changelog**: https://github.com/homebridge-plugins/homebridge-sharkiq/compare/v1.4.1...v1.5.0
+
+## [1.4.1](https://github.com/homebridge-plugins/homebridge-sharkiq/compare/tag/v1.4.1) (2025-07-24)
+
+### Bug Fixes
+- Improve login and API request stability.
+
+### Documentation
+- Clarify OAuth manual login instructions and update setup references.
+
+**Full Changelog**: https://github.com/homebridge-plugins/homebridge-sharkiq/compare/v1.4.0...v1.4.1
+
 ## [1.4.0](https://github.com/homebridge-plugins/homebridge-sharkiq/releases/tag/v1.4.0) (2025-07-17)
 
 ### What's Changes

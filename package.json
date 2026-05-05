@@ -2,7 +2,7 @@
   "name": "@homebridge-plugins/homebridge-sharkiq",
   "displayName": "SharkIQ Plugin",
   "type": "module",
-  "version": "1.5.0",
+  "version": "1.4.1",
   "description": "A Homebridge plugin to connect your Shark Vacuum to homebridge.",
   "author": {
     "name": "Bubba8291",
@@ -29,7 +29,7 @@
   ],
   "main": "dist/index.js",
   "engines": {
-    "homebridge": "^2.0.0-beta.89",
+    "homebridge": "^2.0.0",
     "node": "^22 || ^24"
   },
   "scripts": {
@@ -52,29 +52,19 @@
     "access": "public"
   },
   "dependencies": {
-    "@homebridge/plugin-ui-utils": "^2.2.3",
-    "puppeteer": "24.41.0",
-    "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2",
-    "undici": "8.1.0"
+    "@homebridge/plugin-ui-utils": "^2.2.3"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^8.1.1",
     "@eslint/eslintrc": "^3.3.1",
-    "@types/aes-js": "^3.1.4",
-    "@types/debug": "^4.1.13",
-    "@types/fs-extra": "^11.0.4",
-    "@types/mdast": "^4.0.4",
     "@types/node": "^25.6.0",
-    "@types/semver": "^7.7.1",
-    "@types/source-map-support": "^0.5.10",
-    "eslint": "^9.39.4",
+    "eslint": "^10.3.0",
     "eslint-plugin-format": "^2.0.1",
     "eslint-plugin-html": "^8.1.4",
-    "eslint-plugin-import": "^2.32.0",
-    "eslint-plugin-perfectionist": "^5.8.0",
-    "homebridge": "^2.0.0-beta.89",
-    "homebridge-config-ui-x": "^5.21.0",
+    "eslint-plugin-import-x": "^4.16.2",
+    "eslint-plugin-perfectionist": "^5.9.0",
+    "homebridge": "^2.0.0",
+    "homebridge-config-ui-x": "^5.22.0",
     "shx": "^0.4.0",
     "typedoc": "^0.28.19",
     "typescript": "^6.0.2"

@@ -1,18 +1,80 @@
 import type { Logger } from 'homebridge'
 
-import type { OAuthData } from './type.js'
-
 import process from 'node:process'
-import { setTimeout } from 'node:timers/promises'
-
-import { fetch, type RequestInit } from 'undici'
-import puppeteer from 'puppeteer-extra'
-import StealthPlugin from 'puppeteer-extra-plugin-stealth'
 
 import { generateURL, getAuthData, getOAuthData, removeFile, setAuthData } from './config.js'
 import { global_vars } from './sharkiq-js/const.js'
 import { addSeconds } from './utils.js'
-import { TIMEOUTS } from './constants.js'
+
+interface LoginLogger {
+  debug: (message: string, ...parameters: any[]) => void
+}
+
+export async function exchangeOAuthCodeForAuthTokens(
+  auth_file: string,
+  oauth_file: string,
+  code: string,
+  europe = false,
+  app_id?: string,
+  app_secret?: string,
+  log?: LoginLogger,
+): Promise<void> {
+  const oauthConfig = europe ? global_vars.EU_OAUTH : global_vars.OAUTH
+  const loginUrl = europe ? global_vars.EU_LOGIN_URL : global_vars.LOGIN_URL
+  const resolvedAppId = app_id || (europe ? global_vars.EU_SHARK_APP_ID : global_vars.SHARK_APP_ID)
+  const resolvedAppSecret = app_secret || (europe ? global_vars.EU_SHARK_APP_SECRET : global_vars.SHARK_APP_SECRET)
+  const oAuthData = await getOAuthData(oauth_file)
+
+  const data = {
+    grant_type: 'authorization_code',
+    client_id: oauthConfig.CLIENT_ID,
+    code,
+    code_verifier: oAuthData.code_verify,
+    redirect_uri: oauthConfig.REDIRECT_URI,
+  }
+
+  const reqData = {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Auth0-Client': oauthConfig.AUTH0_CLIENT,
+    },
+    body: JSON.stringify(data),
+  }
+  log?.debug('Request Data', JSON.stringify(data))
+
+  const response = await fetch(oauthConfig.TOKEN_URL, reqData)
+  if (!response.ok) {
+    return Promise.reject(new Error(`Unable to get token data. HTTP ${response.status}`))
+  }
+  const tokenData = await response.json() as { id_token: string }
+  log?.debug('Token Data:', JSON.stringify(tokenData))
+
+  const reqData2 = {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      app_id: resolvedAppId,
+      app_secret: resolvedAppSecret,
+      token: tokenData.id_token,
+    }),
+  } as RequestInit
+
+  const response2 = await fetch(`${loginUrl}/api/v1/token_sign_in`, reqData2)
+  if (!response2.ok) {
+    return Promise.reject(new Error(`Unable to get authorization tokens. HTTP ${response2.status}`))
+  }
+
+  const aylaTokenData = await response2.json() as { expires_in: number } & Record<string, any>
+  const dateNow = new Date()
+  aylaTokenData.expiration = addSeconds(dateNow, aylaTokenData.expires_in)
+  log?.debug('Setting auth data...', JSON.stringify(aylaTokenData))
+
+  await setAuthData(auth_file, aylaTokenData as unknown as import('./type').AuthData)
+  await removeFile(oauth_file).catch(() => undefined)
+}
 
 export class Login {
   public log: Logger
@@ -46,7 +108,7 @@ export class Login {
       const email = this.email
       const password = this.password
 
-      const architecure = process.arch
+      const architecture = process.arch
       const platform = process.platform
       if (email === '' && password === '') {
         if (this.oAuthCode === '') {
@@ -58,211 +120,30 @@ export class Login {
           }
         } else {
           try {
-            const ouath_data = await getOAuthData(this.oauth_file)
-            try {
-              await this.loginCallback(this.oAuthCode, ouath_data)
-            } catch (error) {
-              return Promise.reject(error)
-            }
+            await this.loginCallback(this.oAuthCode)
           } catch (error) {
             this.log.warn('OAuth data not found with OAuth code set. Please clear the OAuth code and try again.')
             return Promise.reject(error)
           }
         }
       } else {
-        if (platform === 'linux' && architecure === 'arm64') {
-          this.log.warn(`${platform} ${architecure} architecture does not support automatic login. Please use OAuth code login method.`)
-
-          if (this.oAuthCode !== '') {
-            try {
-              const ouath_data = await getOAuthData(this.oauth_file)
-              await this.loginCallback(this.oAuthCode, ouath_data)
-              return
-            } catch (error) {
-              this.log.warn('OAuth data not found with OAuth code set. Please clear the OAuth code and try again.')
-              return Promise.reject(error)
-            }
-          }
-          const url = await generateURL(this.oauth_file, this.europe)
-          return Promise.reject(new Error(`Please login to Shark using the following URL: ${url}`))
-        }
-        try {
-          const url = await generateURL(this.oauth_file, this.europe)
-
-          await this.login(email, password, url)
-          if (this.oAuthCode === '') {
-            return Promise.reject(new Error('Error: No OAuth code found'))
-          } else {
-            const ouath_data = await getOAuthData(this.oauth_file)
-            await this.loginCallback(this.oAuthCode, ouath_data)
-          }
-        } catch (error) {
-          this.log.warn('If you received the error Syntax error: Unterminated quoted string, please use the OAuth code login method. '
-            + 'This is a known issue with arm64 devices like Raspberry Pi.')
-          this.log.info('To login using the OAuth code method, '
-            + 'please remove the email and password from your Homebridge configuration and restart Homebridge.')
-          return Promise.reject(error)
-        }
+        this.log.warn(`Automatic browser login is disabled on ${platform} ${architecture}.`)
+        this.log.info('Use OAuth login from the Homebridge UI, or set oAuthCode in config.')
+        const url = await generateURL(this.oauth_file, this.europe)
+        return Promise.reject(new Error(`Please login to Shark using the following URL: ${url}`))
       }
     }
   }
 
-  private async login(email: string, password: string, url: string): Promise<void> {
-    const stealth = StealthPlugin()
-
-    puppeteer.use(stealth)
-
-    const headless = true
-
-    this.log.debug('Headless:', headless)
-    let error = ''
-    try {
-      const browser = await puppeteer.launch({
-        headless,
-        targetFilter: target => target.type() !== 'other',
-      })
-      this.log.debug('Opening chromium browser...')
-      const page = await browser.newPage()
-      const pages = await browser.pages()
-      pages[0].close()
-      this.log.debug('Navigating to Shark login page...')
-      await page.goto(url, { waitUntil: 'domcontentloaded' })
-
-      page.on('response', async (response) => {
-        if (response.url().includes('login?')) {
-          this.log.debug('Retrieving login response...')
-          if (!response.ok() && ![301, 302].includes(response.status())) {
-            this.log.debug('Error logging in: HTTP', response.status())
-            await setTimeout(TIMEOUTS.LOGIN_DELAY)
-            await page.screenshot({ path: 'login_error.png' })
-            const errorMessages = await page.$$eval('span[class="ulp-input-error-message"]', el => el.map(x => x.textContent?.trim() || ''))
-            const promptAlert = await page.$('div[id="prompt-alert"]')
-            if (promptAlert) {
-              const alertP = await promptAlert.$('p')
-              if (alertP) {
-                const alertText = await alertP.evaluate(el => el.textContent?.trim())
-                if (alertText) {
-                  errorMessages.push(alertText)
-                }
-              }
-            }
-            error = errorMessages.join(', ')
-            await browser.close()
-          }
-        } else if (response.url().includes('resume?')) {
-          this.log.debug('Retrieving callback response...')
-          const headers = response.headers()
-          const queries = headers.location.split('?')
-          if (queries.length > 1) {
-            const code = queries[1].split('&').find((query: string) => query.includes('code='))
-            if (code) {
-              this.oAuthCode = code.slice(5)
-            }
-            await browser.close()
-          }
-        }
-      })
-
-      if (headless) {
-        this.log.debug('Inputing login info...')
-        await page.waitForSelector('button[name="action"]')
-        await setTimeout(TIMEOUTS.LOGIN_DELAY)
-
-        await page.waitForSelector('input[inputMode="email"]')
-        await page.type('input[inputMode="email"]', email)
-
-        await setTimeout(TIMEOUTS.LOGIN_DELAY)
-        await page.type('input[type="password"]', password)
-        let verified = false
-        let attempts = 0
-        while (!verified) {
-          await setTimeout(TIMEOUTS.CAPTCHA_DELAY)
-          const captchaInput = await page.$('input[name="captcha"]')
-          const needsCaptcha = await captchaInput?.$eval('input[name="captcha"]', el => el.value === '')
-          if (!needsCaptcha) {
-            verified = true
-          } else {
-            attempts++
-            if (attempts > 3) {
-              error = `Unable to verify captcha after ${attempts} attempts`
-              await browser.close()
-            } else {
-              this.log.debug('Captcha not verified. Attempt #', attempts)
-              const checkbox = await page.$('input[type="checkbox"]')
-              if (checkbox) {
-                await checkbox.click()
-              }
-            }
-          }
-        }
-        await page.click('button[name="action"]')
-        await setTimeout(TIMEOUTS.CAPTCHA_DELAY)
-      }
-    } catch (error) {
-      return Promise.reject(new Error(`Error: ${error}`))
-    }
-    if (error !== '') {
-      return Promise.reject(new Error(`Error: ${error}`))
-    }
-  }
-
-  private async loginCallback(code: string, oAuthData: OAuthData): Promise<void> {
-    const oauthConfig = this.europe ? global_vars.EU_OAUTH : global_vars.OAUTH
-    const loginUrl = this.europe ? global_vars.EU_LOGIN_URL : global_vars.LOGIN_URL
-    
-    const data = {
-      grant_type: 'authorization_code',
-      client_id: oauthConfig.CLIENT_ID,
+  private async loginCallback(code: string): Promise<void> {
+    await exchangeOAuthCodeForAuthTokens(
+      this.auth_file,
+      this.oauth_file,
       code,
-      code_verifier: oAuthData.code_verify,
-      redirect_uri: oauthConfig.REDIRECT_URI,
-    }
-
-    const reqData = {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Auth0-Client': oauthConfig.AUTH0_CLIENT,
-      },
-      body: JSON.stringify(data),
-    }
-    this.log.debug('Request Data', JSON.stringify(data))
-
-    const response = await fetch(oauthConfig.TOKEN_URL, reqData)
-    if (!response.ok) {
-      return Promise.reject(new Error(`Unable to get token data. HTTP ${response.status}`))
-    }
-    const tokenData = await response.json() as { id_token: string }
-    this.log.debug('Token Data:', JSON.stringify(tokenData))
-
-    const reqData2 = {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        app_id: this.app_id,
-        app_secret: this.app_secret,
-        token: tokenData.id_token,
-      }),
-    } as RequestInit
-    const response2 = await fetch(`${loginUrl}/api/v1/token_sign_in`, reqData2)
-    if (!response2.ok) {
-      return Promise.reject(new Error(`Unable to get authorization tokens. HTTP ${response2.status}`))
-    }
-    const aylaTokenData = await response2.json() as { expires_in: number } & Record<string, any>
-    const dateNow = new Date()
-    aylaTokenData.expiration = addSeconds(dateNow, aylaTokenData.expires_in)
-    this.log.debug('Setting auth data...', JSON.stringify(aylaTokenData))
-    try {
-      await setAuthData(this.auth_file, aylaTokenData as unknown as import('./type').AuthData)
-    } catch (error) {
-      return Promise.reject(new Error(`${error}`))
-    }
-    try {
-      await removeFile(this.oauth_file)
-    } catch {
-
-    }
+      this.europe,
+      this.app_id,
+      this.app_secret,
+      this.log,
+    )
   }
 }

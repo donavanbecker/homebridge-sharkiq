@@ -87,8 +87,7 @@ Always verify you're targeting the correct branch before making changes:
 ## Working Effectively
 
 ### Initial Setup
-- Install dependencies: `PUPPETEER_SKIP_DOWNLOAD=true npm install`
-  - **CRITICAL**: Puppeteer requires Chrome download which fails in restricted environments. Always use `PUPPETEER_SKIP_DOWNLOAD=true` environment variable.
+- Install dependencies: `npm install`
   - Takes ~10 seconds. NEVER CANCEL. Set timeout to 30+ seconds.
 - Lint code: `npm run lint` - takes ~3 seconds
 - Build plugin: `npm run build` - takes ~5 seconds. NEVER CANCEL. Set timeout to 30+ seconds.
@@ -130,24 +129,58 @@ Always verify you're targeting the correct branch before making changes:
 - `docs/` - Generated TypeDoc documentation
 - Build generates ES modules (type: "module" in package.json)
 
+## Matter and HomeKit Integration
+
+### Matter Implementation
+The plugin implements a runtime-selected registration mode:
+- **HAP mode** (HomeKit Accessory Protocol): Base implementation via `SharkIQPlatform` and `SharkIQAccessory`
+- **Matter mode**: Extended via `SharkIQMatterPlatform`, selected by the platform proxy in `src/index.ts`
+
+When Homebridge's Matter API is available and enabled, `SharkIQMatterPlatform` registers Shark vacuums as Matter accessories and updates state through Matter cluster attributes. If Matter API is not available (or disabled), the plugin transparently falls back to HAP-only mode via `super.discoverDevices()`.
+
+### Matter Device Type Mapping
+Matter device types should use `api.matter.deviceTypes.*` objects from the homebridge-matter API.
+
+| Mode | Homebridge Class | HAP Service(s) | Matter DeviceType | Matter Clusters |
+|---|---|---|---|---|
+| HAP | `SharkIQPlatform` / `SharkIQAccessory` | `Fanv2`, `ContactSensor`, `Switch` | N/A | N/A |
+| Matter | `SharkIQMatterPlatform` | (HAP not registered in Matter path) | `RoboticVacuumCleaner` | `rvcRunMode`, `rvcOperationalState` |
+
+### Authoritative Matter References
+
+1. https://matter-js.github.io/docs/index.html
+2. https://github.com/homebridge-plugins/homebridge-matter: Official Homebridge Matter plugin repository with extensive documentation and examples
+3. https://github.com/home-assistant/core/tree/dev/homeassistant/components/sharkiq: Home Assistant SharkIQ integration reference implementation
+  - For all Matter cluster, attribute, and device type specifications, use the official homebridge-matter wiki:
+    - [Introduction](https://github.com/homebridge-plugins/homebridge-matter/wiki/Introduction)
+    - [Core Concepts](https://github.com/homebridge-plugins/homebridge-matter/wiki/Core-Concepts)
+    - [Getting Started](https://github.com/homebridge-plugins/homebridge-matter/wiki/Getting-Started)
+    - [State Management](https://github.com/homebridge-plugins/homebridge-matter/wiki/State-Management)
+    - [Monitoring External Changes](https://github.com/homebridge-plugins/homebridge-matter/wiki/Monitoring-External-Changes)
+    - [Best Practices](https://github.com/homebridge-plugins/homebridge-matter/wiki/Best-Practices)
+    - [Advanced Patterns](https://github.com/homebridge-plugins/homebridge-matter/wiki/Advanced-Patterns)
+    - [API Reference](https://github.com/homebridge-plugins/homebridge-matter/wiki/API-Reference)
+    - [Matter Types](https://github.com/homebridge-plugins/homebridge-matter/wiki/Matter-Types)
+    - [Value Conversions](https://github.com/homebridge-plugins/homebridge-matter/wiki/Value-Conversions)
+
+  - **Device References:**
+    - [Appliances Devices (§9)](https://github.com/homebridge-plugins/homebridge-matter/wiki/Section-9-Appliances) - RoboticVacuumCleaner
+    - [Sensors (§7)](https://github.com/homebridge-plugins/homebridge-matter/wiki/Section-7-Sensors) - OccupancySensor and other sensor mappings
+
 ## Authentication and Login Methods
 
 ### OAuth Code Method (Recommended)
-The plugin supports manual OAuth login for cases where automated login fails:
+The plugin supports UI-assisted OAuth login for the easiest setup:
 1. Run Homebridge with plugin configured
-2. Check logs for OAuth URL (printed by homebridge-sharkiq)
-3. Open URL in browser (NOT Safari - use Chrome/Firefox)
-4. Open developer tools → Network tab
-5. Login with SharkClean credentials
-6. Find `/authorize/resume` request in network tab
-7. Extract code from `com.sharkninja.shark://...callback?code=XXXX&state=` URL
-8. Add extracted code to `oAuthCode` config field
-9. Remove email/password from config when using OAuth code
+2. Open the plugin UI and go to Support → OAuth Assistant
+3. Click Generate Login URL and open it in browser (NOT Safari - use Chrome/Firefox)
+4. Login with SharkClean credentials
+5. Copy callback URL/code and paste it into OAuth Assistant
+6. Click Exchange Code and restart Homebridge
 
 ### Email/Password Method
-- Direct login using SharkClean account credentials
-- May fail on some platforms (documented in login.ts for linux arm64)
-- Plugin will fallback to OAuth method if automatic login fails
+- Keep email/password empty for OAuth-only flow
+- OAuth code or OAuth assistant is required to create auth credentials
 
 ## Plugin Configuration
 
@@ -248,14 +281,12 @@ If you have access to SharkClean account and vacuum:
 - Current test environment uses Node v20 with EBADENGINE warnings (still works)
 
 ### Key Dependencies
-- `puppeteer` - Used for automated browser login (skipped in restricted environments)
 - `@homebridge/plugin-ui-utils` - Custom configuration UI framework
-- `node-fetch` - HTTP requests to SharkClean API (v2.6.1 for compatibility)
+- Native Node.js `fetch` - HTTP requests to SharkClean API
 
 ### Network Dependencies
 - **CRITICAL**: Plugin requires internet access to SharkClean servers
-- OAuth login requires browser automation (may fail in headless environments)  
-- Always use `PUPPETEER_SKIP_DOWNLOAD=true` in restricted network environments
+- OAuth login requires opening SharkClean auth URL in a browser
 
 ## CI/CD Pipeline
 
@@ -270,10 +301,29 @@ If you have access to SharkClean account and vacuum:
 - All commands must pass for successful npm publication
 - If any step fails, fix issues before attempting to publish
 
+## Changelog Format Requirements
+
+When generating a changelog release entry, always use this exact structure:
+
+1. Release header with compare URL using `compare/tag/vX.Y.Z`:
+
+```md
+## [X.Y.Z](https://github.com/homebridge-plugins/homebridge-sharkiq/compare/tag/vX.Y.Z) (YYYY-MM-DD)
+```
+
+2. Standard sections as needed (`### Bug Fixes`, `### Enhancements`, `### Documentation`, etc.).
+
+3. End each release entry with a full changelog comparison URL to the previous version:
+
+```md
+**Full Changelog**: https://github.com/homebridge-plugins/homebridge-sharkiq/compare/vX.Y.(Z-1)...vX.Y.Z
+```
+
+Do not omit either URL line when creating a new release entry.
+
 ## Troubleshooting
 
 ### Common Build Issues
-- "Puppeteer Chrome download failed" → Use `PUPPETEER_SKIP_DOWNLOAD=true npm install`
 - "TypeScript compilation errors" → Check `tsconfig.json` and fix type issues
 - "ESLint max-warnings exceeded" → Run `npm run lint:fix` to auto-fix issues
 
@@ -283,5 +333,5 @@ If you have access to SharkClean account and vacuum:
 - "Authentication failed" → Try OAuth code method instead of email/password
 
 ### Platform-Specific Issues
-- Linux ARM64: Automatic login disabled, must use OAuth code method
-- Network restrictions: Use manual OAuth flow, skip Puppeteer downloads
+- Linux ARM64: Use OAuth Assistant/OAuth code flow
+- Network restrictions: Use manual OAuth flow
