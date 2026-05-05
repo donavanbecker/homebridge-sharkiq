@@ -12,16 +12,6 @@
         "type": "string",
         "default": "SharkIQ"
       },
-      "email": {
-        "title": "SharkClean Account Email",
-        "type": "string",
-        "required": false
-      },
-      "password": {
-        "title": "SharkClean Account Password",
-        "type": "string",
-        "required": false
-      },
       "oAuthCode": {
         "title": "SharkClean OAuth Code",
         "type": "string",
@@ -81,23 +71,13 @@
   "layout": [
     {
       "type": "fieldset",
-      "title": "SharkIQ Account Info",
-      "expandable": true,
-      "expanded": true,
-      "items": [
-        "email",
-        "password"
-      ]
-    },
-    {
-      "type": "fieldset",
       "title": "SharkIQ OAuth Info",
       "expandable": true,
       "expanded": false,
       "items": [
         {
           "type": "help",
-          "helpvalue": "<h5>OAuth Code</h5><em class='primary-text'>Enter the OAuth code you received from SharkClean. This is used for manually obtaining credentials.</em>"
+          "helpvalue": "<h5>OAuth Code</h5><em class='primary-text'>Recommended: use the Homebridge UI OAuth Assistant in the plugin Settings tab to generate the login URL and exchange callback code automatically. You can still paste the OAuth code here manually if needed.</em>"
         },
         "oAuthCode"
       ]

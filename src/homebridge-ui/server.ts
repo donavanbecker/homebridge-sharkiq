@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import { join } from 'node:path'
 
 /* Copyright(C) 2021-2024, donavanbecker (https://github.com/donavanbecker). All rights reserved.
  *
@@ -6,9 +7,43 @@ import fs from 'node:fs'
  */
 import { HomebridgePluginUiServer } from '@homebridge/plugin-ui-utils'
 
+import { generateURL } from '../config.js'
+import { exchangeOAuthCodeForAuthTokens } from '../login.js'
+import { global_vars } from '../sharkiq-js/const.js'
+
+function extractOAuthCode(callbackOrCode: string): string {
+  const trimmed = callbackOrCode.trim()
+  if (trimmed === '') {
+    throw new Error('OAuth callback URL or code is required.')
+  }
+
+  if (!trimmed.includes('code=')) {
+    return trimmed
+  }
+
+  try {
+    const parsed = new URL(trimmed)
+    const code = parsed.searchParams.get('code')
+    if (!code) {
+      throw new Error('OAuth code was not found in the callback URL.')
+    }
+    return code
+  } catch {
+    const match = trimmed.match(/[?&]code=([^&]+)/)
+    if (!match || !match[1]) {
+      throw new Error('OAuth code was not found in the callback URL.')
+    }
+    return decodeURIComponent(match[1])
+  }
+}
+
 class PluginUiServer extends HomebridgePluginUiServer {
   constructor() {
     super()
+    const storagePath = this.homebridgeStoragePath
+    if (!storagePath) {
+      throw new Error('Homebridge storage path is unavailable.')
+    }
     /*
       A native method getCachedAccessories() was introduced in config-ui-x v4.37.0
       The following is for users who have a lower version of config-ui-x
@@ -41,6 +76,37 @@ class PluginUiServer extends HomebridgePluginUiServer {
         return []
       }
     })
+
+    this.onRequest('generateOAuthUrl', async ({ europe }: { europe?: boolean } = {}) => {
+      const oauthFile = join(storagePath, global_vars.OAUTH.FILE)
+      const url = await generateURL(oauthFile, europe === true)
+      return { url }
+    })
+
+    this.onRequest('exchangeOAuthCode', async ({ callbackOrCode, europe }: { callbackOrCode: string, europe?: boolean }) => {
+      const code = extractOAuthCode(callbackOrCode)
+      const authFile = join(storagePath, global_vars.FILE)
+      const oauthFile = join(storagePath, global_vars.OAUTH.FILE)
+      await exchangeOAuthCodeForAuthTokens(authFile, oauthFile, code, europe === true)
+      return { success: true }
+    })
+
+    this.onRequest('getAuthStatus', () => {
+      try {
+        const authFile = join(storagePath, global_vars.FILE)
+        if (!fs.existsSync(authFile)) {
+          return { loggedIn: false, message: 'Not logged in' }
+        }
+
+        const raw = fs.readFileSync(authFile, 'utf8')
+        const authData = JSON.parse(raw) as { access_token?: string, refresh_token?: string }
+        const loggedIn = !!authData.access_token && !!authData.refresh_token
+        return { loggedIn, message: loggedIn ? 'Logged in' : 'Not logged in' }
+      } catch {
+        return { loggedIn: false, message: 'Not logged in' }
+      }
+    })
+
     this.ready()
   }
 }

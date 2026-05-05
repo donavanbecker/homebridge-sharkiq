@@ -6,8 +6,8 @@
   <p class="lead text-center">Thank you for installing<strong> homebridge-sharkiq</strong></p>
   <p class="lead text-center">To get started link your SharkIQ Account:</p>
   <ol>
-    <li class="mb-3">Input your SharkIQ <strong>E-mail & Password</strong> into the SharkIQ Account Info.</li>
-    <li class="mb-3">Finally <strong>Restart</strong> Homebridge..</li>
+    <li class="mb-3">Open <strong>Settings</strong> and use the <strong>OAuth Assistant</strong> card to generate a login URL.</li>
+    <li class="mb-3">Paste the callback URL (or code), exchange it, then <strong>Restart</strong> Homebridge.</li>
   </ol>
   <div class="text-center">
     <button type="button" class="btn btn-primary" id="introLink">Continue &rarr;</button>
@@ -48,6 +48,41 @@
       </tbody>
     </table>
     <p class="text-center">External Accessories Will Not Display Here.</p>
+  </div>
+</div>
+<div id="pageSettings" class="mt-4" style="display: none">
+  <div class="card mb-3">
+    <div class="card-body">
+      <h5 class="card-title mb-2">OAuth Assistant</h5>
+      <p class="mb-2">Use this helper to log in without browser automation.</p>
+      <p class="mb-3"><strong>Status:</strong> <span id="oauthStatusBadge" class="badge badge-secondary">Checking...</span></p>
+      <ol>
+        <li>Click Generate Login URL and open it in your browser.</li>
+        <li>Sign in to SharkClean and copy the final callback URL (or just the code value).</li>
+        <li>Paste it below and click Exchange Code.</li>
+      </ol>
+      <div class="form-group">
+        <button type="button" class="btn btn-primary" id="generateOauthUrlBtn">Generate Login URL</button>
+        <button type="button" class="btn btn-outline-secondary" id="refreshOauthStatusBtn">Refresh Status</button>
+      </div>
+      <div class="form-group" id="oauthUrlWrapper" style="display: none">
+        <label for="oauthUrlLink">OAuth Login URL</label>
+        <div class="input-group">
+          <input type="text" class="form-control" id="oauthUrlLink" readonly />
+          <div class="input-group-append">
+            <button class="btn btn-outline-secondary" type="button" id="copyOauthUrlBtn">Copy</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="oauthCallbackInput">Callback URL or OAuth Code</label>
+        <textarea class="form-control" id="oauthCallbackInput" rows="2"
+          placeholder="com.sharkninja.shark://...callback?code=...&state=..."></textarea>
+      </div>
+      <div class="form-group mb-0">
+        <button type="button" class="btn btn-elegant" id="exchangeOauthCodeBtn">Exchange Code</button>
+      </div>
+    </div>
   </div>
 </div>
 <div id="pageSupport" class="mt-4" style="display: none">
@@ -94,6 +129,87 @@
   (async () => {
     try {
       const currentConfig = await homebridge.getPluginConfig();
+      const getPrimaryConfig = () => currentConfig.length > 0 ? currentConfig[0] : {};
+      setupOauthAssistant = () => {
+        const generateOauthUrlBtn = document.getElementById('generateOauthUrlBtn');
+        const oauthUrlWrapper = document.getElementById('oauthUrlWrapper');
+        const oauthUrlLink = document.getElementById('oauthUrlLink');
+        const copyOauthUrlBtn = document.getElementById('copyOauthUrlBtn');
+        const exchangeOauthCodeBtn = document.getElementById('exchangeOauthCodeBtn');
+        const oauthCallbackInput = document.getElementById('oauthCallbackInput');
+
+        const oauthStatusBadge = document.getElementById('oauthStatusBadge');
+        const refreshOauthStatusBtn = document.getElementById('refreshOauthStatusBtn');
+
+        const refreshAuthStatus = async () => {
+          try {
+            const status = await homebridge.request('/getAuthStatus');
+            oauthStatusBadge.innerText = status.message;
+            oauthStatusBadge.classList.remove('badge-secondary', 'badge-danger', 'badge-success');
+            oauthStatusBadge.classList.add(status.loggedIn ? 'badge-success' : 'badge-danger');
+          } catch {
+            oauthStatusBadge.innerText = 'Unknown';
+            oauthStatusBadge.classList.remove('badge-secondary', 'badge-success');
+            oauthStatusBadge.classList.add('badge-danger');
+          }
+        };
+
+        generateOauthUrlBtn.addEventListener('click', async () => {
+          homebridge.showSpinner();
+          try {
+            const config = getPrimaryConfig();
+            const response = await homebridge.request('/generateOAuthUrl', { europe: !!config.europe });
+            oauthUrlLink.value = response.url;
+            oauthUrlWrapper.style.display = 'block';
+            homebridge.toast.success('OAuth URL generated.', 'Success');
+          } catch (error) {
+            homebridge.toast.error(error.message || 'Unable to generate OAuth URL.', 'Error');
+          } finally {
+            homebridge.hideSpinner();
+          }
+        });
+
+        copyOauthUrlBtn.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(oauthUrlLink.value);
+            homebridge.toast.success('OAuth URL copied to clipboard.', 'Copied');
+          } catch {
+            homebridge.toast.error('Unable to copy OAuth URL.', 'Error');
+          }
+        });
+
+        exchangeOauthCodeBtn.addEventListener('click', async () => {
+          const callbackOrCode = oauthCallbackInput.value.trim();
+          if (!callbackOrCode) {
+            homebridge.toast.error('Paste callback URL or OAuth code first.', 'Missing Value');
+            return;
+          }
+
+          homebridge.showSpinner();
+          try {
+            const config = getPrimaryConfig();
+            await homebridge.request('/exchangeOAuthCode', {
+              callbackOrCode,
+              europe: !!config.europe,
+            });
+            oauthCallbackInput.value = '';
+            homebridge.toast.success('OAuth login complete. Restart Homebridge.', 'Success');
+            await refreshAuthStatus();
+          } catch (error) {
+            homebridge.toast.error(error.message || 'Unable to exchange OAuth code.', 'Error');
+          } finally {
+            homebridge.hideSpinner();
+          }
+        });
+
+        refreshOauthStatusBtn.addEventListener('click', async () => {
+          homebridge.showSpinner();
+          await refreshAuthStatus();
+          homebridge.hideSpinner();
+        });
+
+        refreshAuthStatus();
+      };
       showIntro = () => {
         const introLink = document.getElementById('introLink');
         introLink.addEventListener('click', () => {
@@ -115,6 +231,7 @@
         document.getElementById('menuSettings').classList.remove('btn-elegant');
         document.getElementById('menuSettings').classList.add('btn-primary');
         document.getElementById('pageSupport').style.display = 'none';
+        document.getElementById('pageSettings').style.display = 'none';
         document.getElementById('pageDevices').style.display = 'block';
         const cachedAccessories =
           typeof homebridge.getCachedAccessories === 'function'
@@ -165,6 +282,7 @@
         document.getElementById('menuSettings').classList.remove('btn-elegant');
         document.getElementById('menuSettings').classList.add('btn-primary');
         document.getElementById('pageSupport').style.display = 'block';
+        document.getElementById('pageSettings').style.display = 'none';
         document.getElementById('pageDevices').style.display = 'none';
         homebridge.hideSpinner();
       };
@@ -177,6 +295,7 @@
         document.getElementById('menuSettings').classList.add('btn-elegant');
         document.getElementById('menuSettings').classList.remove('btn-primary');
         document.getElementById('pageSupport').style.display = 'none';
+        document.getElementById('pageSettings').style.display = 'block';
         document.getElementById('pageDevices').style.display = 'none';
         homebridge.showSchemaForm();
         homebridge.hideSpinner();
@@ -185,11 +304,13 @@
       menuDevices.addEventListener('click', () => showDevices());
       menuSettings.addEventListener('click', () => showSettings());
       if (currentConfig.length) {
+        setupOauthAssistant();
         document.getElementById('menuWrapper').style.display = 'inline-flex';
         showDevices();
       } else {
         currentConfig.push({ name: 'SharkIQ' });
         await homebridge.updatePluginConfig(currentConfig);
+        setupOauthAssistant();
         showIntro();
       }
     } catch (err) {

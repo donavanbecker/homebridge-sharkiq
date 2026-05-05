@@ -8,11 +8,11 @@
 
 </span>
 
-A new homebridge plugin for SharkIQ Vacuums.
+A Homebridge plugin for SharkIQ vacuums.
 
 Contributions are always welcome. I used the [sharkiq](https://github.com/JeffResc/sharkiq/) python module as a reference for creating the javascript wrapper to control SharkIQ Vacuums.
 
-This plguin has only been tested on the `UR250BEXUS` model.
+This plugin has only been tested on the `UR250BEXUS` model.
 
 The fastest way to get community support (not for bugs) is to join the [Homebridge Discord server](https://discord.gg/kqNCe2D) and chat in the #sharkiq channel.
 
@@ -20,7 +20,7 @@ The fastest way to get community support (not for bugs) is to join the [Homebrid
 
 ### Step 1.
 
-Run `npm install -g homebridge-sharkiq`
+Run `npm install -g @homebridge-plugins/homebridge-sharkiq`
 
 ### Step 2.
 
@@ -32,8 +32,6 @@ Configure Homebridge. The config file for SharkIQ should include:
     {
       "name": "SharkIQ",
       "platform": "SharkIQ",
-      "email": "[Shark Clean Account Email]",
-      "password": "[Shark Clean Account Password]",
       "oAuthCode": "[Optional. Use for manually obtaining credentials]",
       "vacuums": [
         "[Shark Vacuum DSN]",
@@ -47,15 +45,9 @@ Configure Homebridge. The config file for SharkIQ should include:
 }
 ```
 
-# Important
+The Vacuums array is a list of your vacuum's device serial numbers (DSN). If you only have one vacuum, just include the one's DSN. The DSN(s) can be found in the SharkClean mobile app.
 
-You may be prompted to use the manual OAuth login method. In order to use the manual OAuth login method, you must remove the email and password values in your configuration first.
-
-#
-
-The email and password is your Shark Clean account you used to setup the vacuum. The Vacuums array is a list of your vacuum's device serial numbers (DSN). If you only have one vacuum, just include the one's DSN. The DSN(s) can be found in the SharkClean mobile app.
-
-If you would like to manually obtain your Shark Clean credentials without using your email and password, you can obtain a OAuth code instead. Refer to the `OAuth Code Login Method` section.
+If you would like to manually obtain your Shark Clean credentials, you can use an OAuth code. Refer to the `OAuth Code Login Method` section.
 
 The Vacuums array is a list of your vacuum's device serial numbers (DSN). If you only have one vacuum, just include the one's DSN. The DSN(s) can be found in the SharkClean mobile app.
 
@@ -72,9 +64,53 @@ The default interval between updating the docked status is 30 seconds (30000 ms)
   - Set `invertDockedStatus` to `true` to display as "closed" when the vacuum is docked and "opened" when the vacuum is not docked
 - Pause switch for pausing the vacuum while it's running
 
+## Matter and HomeKit Integration
+
+This plugin supports both classic HomeKit Accessory Protocol (HAP) and Homebridge Matter.
+
+### Matter Implementation
+
+- **HAP mode**: Uses `SharkIQPlatform` and `SharkIQAccessory`.
+- **Matter mode**: Uses `SharkIQMatterPlatform` when Homebridge Matter is available and enabled.
+
+If Matter is unavailable or disabled, the plugin automatically falls back to HAP mode.
+
+### Device Mapping
+
+| Mode | Homebridge Class | HAP Service(s) | Matter DeviceType | Matter Clusters |
+|---|---|---|---|---|
+| HAP | `SharkIQPlatform` / `SharkIQAccessory` | `Fanv2`, `ContactSensor`, `Switch` | N/A | N/A |
+| Matter | `SharkIQMatterPlatform` | (HAP not registered in Matter path) | `RoboticVacuumCleaner` | `rvcRunMode`, `rvcOperationalState` |
+
+### Matter References
+
+- https://matter-js.github.io/docs/index.html
+- https://github.com/homebridge-plugins/homebridge-matter
+- https://github.com/homebridge-plugins/homebridge-matter/wiki/Introduction
+- https://github.com/homebridge-plugins/homebridge-matter/wiki/Core-Concepts
+- https://github.com/homebridge-plugins/homebridge-matter/wiki/Getting-Started
+- https://github.com/homebridge-plugins/homebridge-matter/wiki/State-Management
+- https://github.com/homebridge-plugins/homebridge-matter/wiki/Monitoring-External-Changes
+- https://github.com/homebridge-plugins/homebridge-matter/wiki/Best-Practices
+- https://github.com/homebridge-plugins/homebridge-matter/wiki/Advanced-Patterns
+- https://github.com/homebridge-plugins/homebridge-matter/wiki/API-Reference
+- https://github.com/homebridge-plugins/homebridge-matter/wiki/Matter-Types
+- https://github.com/homebridge-plugins/homebridge-matter/wiki/Value-Conversions
+- https://github.com/homebridge-plugins/homebridge-matter/wiki/Section-9-Appliances
+
 ### OAuth Code Login Method
 
 The OAuth Code value is for creating and storing the login for the plugin. Here is how to sign in with this method.
+
+The easiest method is to use the Homebridge UI OAuth Assistant in this plugin's Settings tab:
+
+1. Open the plugin UI in Homebridge.
+2. Go to `Settings` -> `OAuth Assistant`.
+3. Click `Generate Login URL`.
+4. Open the URL, sign in, then paste the callback URL (or code) back into the assistant.
+5. Click `Exchange Code` and restart Homebridge.
+
+Manual method (if needed):
 
 1. Run Homebridge with the latest plugin version.
 2. Open the Homebridge logs
@@ -94,3 +130,4 @@ Contributions would be very helpful to help this Homebridge plugin stay maintain
 ## Useful Links
 
 - [SharkIQ Python](https://github.com/JeffResc/sharkiq/)
+- [Home Assistant SharkIQ Integration](https://github.com/home-assistant/core/tree/dev/homeassistant/components/sharkiq)
