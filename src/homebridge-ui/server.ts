@@ -48,7 +48,7 @@ class PluginUiServer extends HomebridgePluginUiServer {
       A native method getCachedAccessories() was introduced in config-ui-x v4.37.0
       The following is for users who have a lower version of config-ui-x
     */
-    this.onRequest('getCachedAccessories', () => {
+    this.onRequest('/getCachedAccessories', () => {
       try {
         const plugin = '@homebridge-plugins/homebridge-sharkiq'
         const devicesToReturn = []
@@ -77,13 +77,13 @@ class PluginUiServer extends HomebridgePluginUiServer {
       }
     })
 
-    this.onRequest('generateOAuthUrl', async ({ europe }: { europe?: boolean } = {}) => {
+    this.onRequest('/generateOAuthUrl', async ({ europe }: { europe?: boolean } = {}) => {
       const oauthFile = join(storagePath, global_vars.OAUTH.FILE)
       const url = await generateURL(oauthFile, europe === true)
       return { url }
     })
 
-    this.onRequest('exchangeOAuthCode', async ({ callbackOrCode, europe }: { callbackOrCode: string, europe?: boolean }) => {
+    this.onRequest('/exchangeOAuthCode', async ({ callbackOrCode, europe }: { callbackOrCode: string, europe?: boolean }) => {
       const code = extractOAuthCode(callbackOrCode)
       const authFile = join(storagePath, global_vars.FILE)
       const oauthFile = join(storagePath, global_vars.OAUTH.FILE)
@@ -91,7 +91,7 @@ class PluginUiServer extends HomebridgePluginUiServer {
       return { success: true }
     })
 
-    this.onRequest('getAuthStatus', () => {
+    this.onRequest('/getAuthStatus', () => {
       try {
         const authFile = join(storagePath, global_vars.FILE)
         if (!fs.existsSync(authFile)) {
