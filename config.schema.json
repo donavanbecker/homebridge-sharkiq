@@ -18,9 +18,10 @@
         "required": false
       },
       "vacuums": {
-        "title": "SharkClean Vacuum Devicess",
+        "title": "SharkClean Vacuum Devices",
+        "description": "The DSNs of the vacuums to add. Leave this empty to add every vacuum on your account (recommended unless you want to add only some of them).",
         "type": "array",
-        "required": true,
+        "required": false,
         "items": {
           "title": "SharkClean DSN",
           "type": "string"

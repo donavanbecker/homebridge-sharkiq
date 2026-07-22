@@ -32,29 +32,34 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
 
     // Start plugin and attempt to login
     this.api.on('didFinishLaunching', () => {
-      const serialNumbers = config.vacuums
-      if (!Array.isArray(serialNumbers) || serialNumbers.length === 0) {
-        log.error('List of your vacuum DSNs you want to be added must be present in the config')
-        return
-      }
+      const configuredDsns = Array.isArray(config.vacuums)
+        ? (config.vacuums as unknown[]).filter((dsn): dsn is string => typeof dsn === 'string' && dsn.trim() !== '')
+        : []
+      // With no DSNs configured, add every vacuum on the account. This is the
+      // documented single-vacuum workaround for the DSN-matching problem, and it
+      // needs no config at all (#64, #68).
+      const addAll = configuredDsns.length === 0
+
       this.login().then((devices) => {
-        // Normalise the configured DSNs so a copy/paste from the Shark app with a
-        // different case or a stray space still matches what the account returns.
-        // DSNs are unique regardless of case, so this is safe (#64, #70).
-        const wanted = new Set(
-          serialNumbers
-            .filter((dsn): dsn is string => typeof dsn === 'string')
-            .map(dsn => dsn.trim().toUpperCase()),
-        )
         const discovered = devices.map(device => String(device._dsn))
         log.info(`Found ${devices.length} vacuum(s) on your account: ${discovered.join(', ') || 'none'}`)
-        for (let i = 0; i < devices.length; i++) {
-          if (wanted.has(String(devices[i]._dsn).trim().toUpperCase())) {
-            this.vacuumDevices.push(devices[i])
+
+        if (addAll) {
+          log.info('No vacuum DSNs configured, adding all vacuums found on your account.')
+          this.vacuumDevices.push(...devices)
+        } else {
+          // Normalise the configured DSNs so a copy/paste from the Shark app with a
+          // different case or a stray space still matches what the account returns.
+          // DSNs are unique regardless of case, so this is safe (#64, #70).
+          const wanted = new Set(configuredDsns.map(dsn => dsn.trim().toUpperCase()))
+          for (let i = 0; i < devices.length; i++) {
+            if (wanted.has(String(devices[i]._dsn).trim().toUpperCase())) {
+              this.vacuumDevices.push(devices[i])
+            }
           }
-        }
-        if (this.vacuumDevices.length === 0) {
-          log.warn(`None of the DSNs provided matched the vacuum(s) on your account. Configured: [${serialNumbers.join(', ')}], discovered: [${discovered.join(', ')}]`)
+          if (this.vacuumDevices.length === 0) {
+            log.warn(`None of the DSNs provided matched the vacuum(s) on your account. Configured: [${configuredDsns.join(', ')}], discovered: [${discovered.join(', ')}]. Leave the DSN list empty to add every vacuum on your account.`)
+          }
         }
         this.discoverDevices()
       }).catch((error) => {
