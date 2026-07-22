@@ -1,8 +1,8 @@
 import type { API } from 'homebridge'
 
-import { SharkIQMatterPlatform } from './SharkIQMatterPlatform.js'
 import { SharkIQPlatform } from './platform.js'
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
+import { SharkIQMatterPlatform } from './SharkIQMatterPlatform.js'
 import { createPlatformProxy } from './utils.js'
 
 // Register our platform with homebridge.

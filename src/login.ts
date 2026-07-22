@@ -60,6 +60,7 @@ export async function exchangeOAuthCodeForAuthTokens(
       app_secret: resolvedAppSecret,
       token: tokenData.id_token,
     }),
+  // eslint-disable-next-line no-undef -- RequestInit is a global DOM type validated by tsc
   } as RequestInit
 
   const response2 = await fetch(`${loginUrl}/api/v1/token_sign_in`, reqData2)

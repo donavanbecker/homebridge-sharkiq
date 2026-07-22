@@ -1,6 +1,8 @@
 import type { PlatformConfig } from 'homebridge'
 
-import { DEFAULT_CONFIG, type SharkIQPluginConfig } from './settings.js'
+import type { SharkIQPluginConfig } from './settings.js'
+
+import { DEFAULT_CONFIG } from './settings.js'
 
 // Add seconds to a date
 function addSeconds(date: Date, seconds: number): Date {
@@ -17,7 +19,7 @@ function isValidDate(d: Date): boolean {
 }
 
 // Safely parse JSON with better error handling
-function safeJsonParse(jsonString: string): { success: boolean; data?: any; error?: string } {
+function safeJsonParse(jsonString: string): { success: boolean, data?: any, error?: string } {
   try {
     // Check if input is a string
     if (typeof jsonString !== 'string') {

@@ -55,6 +55,7 @@ class AylaApi {
 
   // Make API Request
   async makeRequest(method: string, url: string, data: object | null, auth_header: string | null): Promise<APIResponse> {
+    // eslint-disable-next-line no-undef -- RequestInit is a global DOM type validated by tsc
     const reqData: RequestInit = {}
     const headers: Record<string, string> = {}
     reqData.method = method

@@ -72,7 +72,7 @@ export async function generateURL(oauth_file_path: string, europe = false): Prom
     }&redirect_uri=${encodeURIComponent(oauthConfig.REDIRECT_URI)
     }&code_challenge=${encodeURIComponent(oAuthData.code_challenge)
     }&code_challenge_method=S256`
-    + `&ui_locales=en`
+    + '&ui_locales=en'
     + `&auth0Client=${oauthConfig.AUTH0_CLIENT}`
 
     return url

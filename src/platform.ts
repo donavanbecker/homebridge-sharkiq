@@ -4,11 +4,11 @@ import type { SharkIqVacuum } from './sharkiq-js/sharkiq'
 
 import { join } from 'node:path'
 
+import { TIMEOUTS } from './constants.js'
 import { Login } from './login.js'
 import { SharkIQAccessory } from './platformAccessory.js'
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
 import { get_ayla_api } from './sharkiq-js/ayla_api.js'
-import { TIMEOUTS } from './constants.js'
 import { global_vars } from './sharkiq-js/const.js'
 
 // SharkIQPlatform Main Class
@@ -65,13 +65,13 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
     const password = this.config.password || ''
     // Log which login method is being used based on user configuration
     // Email/password takes precedence if both are provided (matches Login class logic)
-    if (email && typeof email === 'string' && email.trim() !== '' && 
-        password && typeof password === 'string' && password.trim() !== '') {
+    if (email && typeof email === 'string' && email.trim() !== ''
+      && password && typeof password === 'string' && password.trim() !== '') {
       this.log.info('Valid email and password present, using email and password login method.')
     } else if (oAuthCode && typeof oAuthCode === 'string' && oAuthCode.trim() !== '') {
       this.log.info('Valid OAuth code present, using OAuth login method.')
     }
-    
+
     if (email !== '' && password === '') {
       return Promise.reject(new Error('Password must be present in the config if email is provided.'))
     } else if (email === '' && password !== '') {
@@ -128,7 +128,7 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
         .setCharacteristic(this.Characteristic.SerialNumber, vacuumDevice._dsn)
 
       activeAccessories.push(accessory)
-      new SharkIQAccessory(this, accessory, vacuumDevice, this.api.hap.uuid, this.log, invertDockedStatus, dockedUpdateInterval)
+      void new SharkIQAccessory(this, accessory, vacuumDevice, this.api.hap.uuid, this.log, invertDockedStatus, dockedUpdateInterval)
     })
 
     if (externalAccessory) {

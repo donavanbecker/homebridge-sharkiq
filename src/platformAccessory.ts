@@ -3,9 +3,9 @@ import type { CharacteristicValue, Logger, PlatformAccessory, Service, uuid } fr
 import type { SharkIQPlatform } from './platform.js'
 import type { SharkIqVacuum } from './sharkiq-js/sharkiq.js'
 
-import { OperatingModes, PowerModes, Properties } from './sharkiq-js/sharkiq.js'
-import { VACUUM_SPEEDS, TIMEOUTS } from './constants.js'
+import { TIMEOUTS, VACUUM_SPEEDS } from './constants.js'
 import { createPromiseRejectionHandler } from './errorHandling.js'
+import { OperatingModes, PowerModes, Properties } from './sharkiq-js/sharkiq.js'
 
 export class SharkIQAccessory {
   private service: Service
