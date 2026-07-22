@@ -25,6 +25,7 @@
   },
   "keywords": [
     "homebridge-plugin",
+    "supports-matter",
     "sharkiq"
   ],
   "main": "dist/index.js",
