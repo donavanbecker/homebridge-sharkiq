@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file. This projec
 - fix: match configured vacuum DSNs ignoring case and spaces, and log the discovered DSNs to make configuration easier (#64, #70)
 - fix: add every vacuum on the account when no DSNs are configured, instead of erroring out (the documented single-vacuum workaround) (#64, #68)
 - fix(ui): register the OAuth login handlers with the leading slash the UI calls, so "Generate Login URL" no longer fails with "No Registered Handler" (#18)
+- fix(matter): drop the operational state labels that newer Matter rejects, so the robot vacuum registers over Matter again (#83)
 
 ## [1.5.0](https://github.com/homebridge-plugins/homebridge-sharkiq/compare/tag/v1.5.0) (2026-05-04)
 

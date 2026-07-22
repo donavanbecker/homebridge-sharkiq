@@ -153,17 +153,20 @@ export class SharkIQMatterPlatform extends SharkIQPlatform {
               currentMode: 0,
             },
             rvcOperationalState: {
+              // operationalStateLabel is only permitted on manufacturer-specific
+              // states (IDs 128-191). Matter.js rejects it on the standard states
+              // below (0-66) as a conformance error and rolls back the whole
+              // registration (#83), so only the IDs are supplied. The list must
+              // still include the Error state (id 3) or the server also rolls back
+              // (#79).
               operationalStateList: [
-                { operationalStateId: 0, operationalStateLabel: 'Stopped' },
-                { operationalStateId: 1, operationalStateLabel: 'Running' },
-                { operationalStateId: 2, operationalStateLabel: 'Paused' },
-                // Matter requires the operational state list to include the Error
-                // state; without it RvcOperationalStateServer rolls back the whole
-                // registration (#79)
-                { operationalStateId: 3, operationalStateLabel: 'Error' },
-                { operationalStateId: 64, operationalStateLabel: 'Seeking Charger' },
-                { operationalStateId: 65, operationalStateLabel: 'Charging' },
-                { operationalStateId: 66, operationalStateLabel: 'Docked' },
+                { operationalStateId: 0 },
+                { operationalStateId: 1 },
+                { operationalStateId: 2 },
+                { operationalStateId: 3 },
+                { operationalStateId: 64 },
+                { operationalStateId: 65 },
+                { operationalStateId: 66 },
               ],
               operationalState: 66,
             },
