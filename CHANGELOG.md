@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file. This projec
 - chore: standardise the package manifest with the other org plugins
 - docs: add claude and copilot instructions files
 - docs: use the standard org readme banner
+- chore(deps): dependency updates
 
 ## [1.5.0](https://github.com/homebridge-plugins/homebridge-sharkiq/compare/tag/v1.5.0) (2026-05-04)
 
