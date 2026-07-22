@@ -157,6 +157,10 @@ export class SharkIQMatterPlatform extends SharkIQPlatform {
                 { operationalStateId: 0, operationalStateLabel: 'Stopped' },
                 { operationalStateId: 1, operationalStateLabel: 'Running' },
                 { operationalStateId: 2, operationalStateLabel: 'Paused' },
+                // Matter requires the operational state list to include the Error
+                // state; without it RvcOperationalStateServer rolls back the whole
+                // registration (#79)
+                { operationalStateId: 3, operationalStateLabel: 'Error' },
                 { operationalStateId: 64, operationalStateLabel: 'Seeking Charger' },
                 { operationalStateId: 65, operationalStateLabel: 'Charging' },
                 { operationalStateId: 66, operationalStateLabel: 'Docked' },
