@@ -38,13 +38,23 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
         return
       }
       this.login().then((devices) => {
+        // Normalise the configured DSNs so a copy/paste from the Shark app with a
+        // different case or a stray space still matches what the account returns.
+        // DSNs are unique regardless of case, so this is safe (#64, #70).
+        const wanted = new Set(
+          serialNumbers
+            .filter((dsn): dsn is string => typeof dsn === 'string')
+            .map(dsn => dsn.trim().toUpperCase()),
+        )
+        const discovered = devices.map(device => String(device._dsn))
+        log.info(`Found ${devices.length} vacuum(s) on your account: ${discovered.join(', ') || 'none'}`)
         for (let i = 0; i < devices.length; i++) {
-          if (serialNumbers.includes(devices[i]._dsn)) {
+          if (wanted.has(String(devices[i]._dsn).trim().toUpperCase())) {
             this.vacuumDevices.push(devices[i])
           }
         }
         if (this.vacuumDevices.length === 0) {
-          log.warn('None of the DSNs provided matched the vacuum(s) on your account.')
+          log.warn(`None of the DSNs provided matched the vacuum(s) on your account. Configured: [${serialNumbers.join(', ')}], discovered: [${discovered.join(', ')}]`)
         }
         this.discoverDevices()
       }).catch((error) => {
