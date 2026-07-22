@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/)
 
+## v1.5.2 (Pending Release)
+
+### Changed
+
+- chore(github): release on a published github release, not every push to latest
+- chore(github): align workflows, funding and issue templates with the other org plugins
+- chore: standardise the eslint setup and apply the org lint rules
+- chore: align the npm publishing files with the other org plugins
+- chore: standardise the package manifest with the other org plugins
+- docs: add claude and copilot instructions files
+- docs: use the standard org readme banner
+
 ## [1.5.0](https://github.com/homebridge-plugins/homebridge-sharkiq/compare/tag/v1.5.0) (2026-05-04)
 
 ### Enhancements

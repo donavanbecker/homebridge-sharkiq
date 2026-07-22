@@ -1,133 +1,59 @@
+<p align="center">
+   <a href="https://github.com/homebridge-plugins/homebridge-sharkiq"><img alt="homebridge-sharkiq" src="https://raw.githubusercontent.com/homebridge-plugins/homebridge-sharkiq/latest/branding/Homebridge_x_SharkIQ.png" width="600px"></a>
+</p>
 <span align="center">
 
-# Homebridge Shark Clean Vacuum Plugin
+## homebridge-sharkiq
 
-[![verified-by-homebridge](https://badgen.net/badge/homebridge/verified/purple)](https://github.com/homebridge/homebridge/wiki/Verified-Plugins)
-[![npm](https://badgen.net/npm/dt/@homebridge-plugins/homebridge-sharkiq?color=purple)](https://www.npmjs.com/package/@homebridge-plugins/homebridge-sharkiq)
-[![npm](https://badgen.net/npm/v/@homebridge-plugins/homebridge-sharkiq?color=purple)](https://www.npmjs.com/package/@homebridge-plugins/homebridge-sharkiq)
+Homebridge plugin to integrate Shark IQ robot vacuums into HomeKit
+
+[![npm](https://img.shields.io/npm/v/@homebridge-plugins/homebridge-sharkiq/latest?label=latest)](https://www.npmjs.com/package/@homebridge-plugins/homebridge-sharkiq)
+[![npm](https://img.shields.io/npm/v/@homebridge-plugins/homebridge-sharkiq/beta?label=beta)](https://github.com/homebridge/homebridge/wiki/How-to-Install-Alternate-Plugin-Versions)<br>
+[![npm](https://img.shields.io/npm/dt/@homebridge-plugins/homebridge-sharkiq)](https://www.npmjs.com/package/@homebridge-plugins/homebridge-sharkiq)
+[![Discord](https://img.shields.io/discord/432663330281226270?color=728ED5&logo=discord&label=hb-discord)](https://discord.gg/bHjKNkN)
 
 </span>
 
-A Homebridge plugin for SharkIQ vacuums.
+### Plugin Information
 
-Contributions are always welcome. I used the [sharkiq](https://github.com/JeffResc/sharkiq/) python module as a reference for creating the javascript wrapper to control SharkIQ Vacuums.
+- This plugin allows you to view and control your Shark IQ robot vacuums within HomeKit. The plugin:
+  - connects to SharkNinja's cloud (which runs on the Ayla Networks platform) to discover and control your robots
+  - supports both the US and EU regions
+  - can optionally expose robots over Matter as well as HomeKit
 
-This plugin has only been tested on the `UR250BEXUS` model.
+### Prerequisites
 
-The fastest way to get community support (not for bugs) is to join the [Homebridge Discord server](https://discord.gg/kqNCe2D) and chat in the #sharkiq channel.
+- To use this plugin, you will need to already have:
+  - [Node](https://nodejs.org): latest version of `v22` or `v24` - any other major version is not supported.
+  - [Homebridge](https://homebridge.io): `v2` - refer to link for more information and installation instructions.
+  - A Shark IQ robot vacuum set up in the SharkClean app.
 
-## Install and Setup
+### Setup
 
-### Step 1.
+- [Installation](https://github.com/homebridge-plugins/homebridge-sharkiq/wiki/Installation)
+- [Configuration](https://github.com/homebridge-plugins/homebridge-sharkiq/wiki/Configuration)
+- [Beta Version](https://github.com/homebridge-plugins/homebridge-sharkiq/wiki/Beta-Version)
+- [Node Version](https://github.com/homebridge-plugins/homebridge-sharkiq/wiki/Node-Version)
 
-Run `npm install -g @homebridge-plugins/homebridge-sharkiq`
+### Features
 
-### Step 2.
+- A switch to start and stop a clean
+- A fan control reflecting the robot's running state
+- A contact sensor that reports when the robot is docked
 
-Configure Homebridge. The config file for SharkIQ should include:
+### Help/About
 
-```json
-{
-  "platforms": [
-    {
-      "name": "SharkIQ",
-      "platform": "SharkIQ",
-      "oAuthCode": "[Optional. Use for manually obtaining credentials]",
-      "vacuums": [
-        "[Shark Vacuum DSN]",
-        "..."
-      ],
-      "europe": false,
-      "invertDockedStatus": false,
-      "dockedUpdateInterval": 30000
-    }
-  ]
-}
-```
+- [Common Errors](https://github.com/homebridge-plugins/homebridge-sharkiq/wiki/Common-Errors)
+- [Support Request](https://github.com/homebridge-plugins/homebridge-sharkiq/issues/new/choose)
+- [Changelog](https://github.com/homebridge-plugins/homebridge-sharkiq/blob/latest/CHANGELOG.md)
+- [About Me](https://github.com/sponsors/bwp91)
 
-The Vacuums array is a list of your vacuum's device serial numbers (DSN). If you only have one vacuum, just include the one's DSN. The DSN(s) can be found in the SharkClean mobile app.
+### Credits
 
-If you would like to manually obtain your Shark Clean credentials, you can use an OAuth code. Refer to the `OAuth Code Login Method` section.
+- To Bubba8291: the original creator of this plugin.
+- To the creators/contributors of [Homebridge](https://homebridge.io) who make this plugin possible.
 
-The Vacuums array is a list of your vacuum's device serial numbers (DSN). If you only have one vacuum, just include the one's DSN. The DSN(s) can be found in the SharkClean mobile app.
+### Disclaimer
 
-If you are in Europe or the UK, set the `europe` config value to `true`. SharkClean has separate servers for the U.S. and Europe. The default value is `false`, which connects to the U.S. server.
-
-The default interval between updating the docked status is 30 seconds (30000 ms). To change the docked status interval, add `dockedUpdateInterval` to your config. Value is in milliseconds. If the interval is too low, you have the risk of your account being rate limited.
-
-## Features
-
-- Be able to turn on and off the vacuum
-- Set the power mode of the vacuum and change it while running
-- Sensor for if the vacuum is docked or not
-  - The sensor will display as "opened" when the vacuum is docked and "closed" when the vacuum is not docked
-  - Set `invertDockedStatus` to `true` to display as "closed" when the vacuum is docked and "opened" when the vacuum is not docked
-- Pause switch for pausing the vacuum while it's running
-
-## Matter and HomeKit Integration
-
-This plugin supports both classic HomeKit Accessory Protocol (HAP) and Homebridge Matter.
-
-### Matter Implementation
-
-- **HAP mode**: Uses `SharkIQPlatform` and `SharkIQAccessory`.
-- **Matter mode**: Uses `SharkIQMatterPlatform` when Homebridge Matter is available and enabled.
-
-If Matter is unavailable or disabled, the plugin automatically falls back to HAP mode.
-
-### Device Mapping
-
-| Mode | Homebridge Class | HAP Service(s) | Matter DeviceType | Matter Clusters |
-|---|---|---|---|---|
-| HAP | `SharkIQPlatform` / `SharkIQAccessory` | `Fanv2`, `ContactSensor`, `Switch` | N/A | N/A |
-| Matter | `SharkIQMatterPlatform` | (HAP not registered in Matter path) | `RoboticVacuumCleaner` | `rvcRunMode`, `rvcOperationalState` |
-
-### Matter References
-
-- https://matter-js.github.io/docs/index.html
-- https://github.com/homebridge-plugins/homebridge-matter
-- https://github.com/homebridge-plugins/homebridge-matter/wiki/Introduction
-- https://github.com/homebridge-plugins/homebridge-matter/wiki/Core-Concepts
-- https://github.com/homebridge-plugins/homebridge-matter/wiki/Getting-Started
-- https://github.com/homebridge-plugins/homebridge-matter/wiki/State-Management
-- https://github.com/homebridge-plugins/homebridge-matter/wiki/Monitoring-External-Changes
-- https://github.com/homebridge-plugins/homebridge-matter/wiki/Best-Practices
-- https://github.com/homebridge-plugins/homebridge-matter/wiki/Advanced-Patterns
-- https://github.com/homebridge-plugins/homebridge-matter/wiki/API-Reference
-- https://github.com/homebridge-plugins/homebridge-matter/wiki/Matter-Types
-- https://github.com/homebridge-plugins/homebridge-matter/wiki/Value-Conversions
-- https://github.com/homebridge-plugins/homebridge-matter/wiki/Section-9-Appliances
-
-### OAuth Code Login Method
-
-The OAuth Code value is for creating and storing the login for the plugin. Here is how to sign in with this method.
-
-The easiest method is to use the Homebridge UI OAuth Assistant in this plugin's Settings tab:
-
-1. Open the plugin UI in Homebridge.
-2. Go to `Settings` -> `OAuth Assistant`.
-3. Click `Generate Login URL`.
-4. Open the URL, sign in, then paste the callback URL (or code) back into the assistant.
-5. Click `Exchange Code` and restart Homebridge.
-
-Manual method (if needed):
-
-1. Run Homebridge with the latest plugin version.
-2. Open the Homebridge logs
-3. Open the URL in the console printed by homebridge-sharkiq. Safari will not work due to the way Safari handles the results of the login
-4. Before you login, open up developer tools in your browser (inspect element), and navigate to the network tab
-5. Enter your login info, and press continue
-6. Open the request with the uri of `/authorize/resume` that shows up and view the headers
-7. Search `com.sharkninja.shark` in the headers
-8. Copy the code in between `code=` and `&`. for example in `com.sharkninja.shark://login.sharkninja.com/ios/com.sharkninja.shark/callback?code=abcdefghijkl&state=`, `abcdefghijkl` is the code that needs to be copied
-9. Open your Homebridge configuration, and paste the `code` value in the OAuth Code config option
-10. Restart Homebridge
-
-## Notes
-
-Contributions would be very helpful to help this Homebridge plugin stay maintained and up to date. If you have any problems, please create an issue.
-
-## Useful Links
-
-- [SharkIQ Python](https://github.com/JeffResc/sharkiq/)
-- [Home Assistant SharkIQ Integration](https://github.com/home-assistant/core/tree/dev/homeassistant/components/sharkiq)
+- I am in no way affiliated with SharkNinja and this plugin is a personal project that I maintain in my free time.
+- Use this plugin entirely at your own risk - please see licence for more information.
