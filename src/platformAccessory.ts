@@ -223,9 +223,23 @@ export class SharkIQAccessory {
   async setVacuumActive(value: CharacteristicValue): Promise<void> {
     this.log.debug('Triggering SET Vacuum Active')
 
-    if (!value) {
-      const mode = this.device.operating_mode()
-      if (mode === OperatingModes.START || mode === OperatingModes.STOP) {
+    const mode = this.device.operating_mode()
+    const running = mode === OperatingModes.START || mode === OperatingModes.STOP
+
+    if (value) {
+      // Turning on: start cleaning if it isn't already running. Previously this
+      // handler only did anything when turning OFF, so switching the vacuum on
+      // sent no command and HomeKit immediately reverted the control to off (#68).
+      // Reuse the current fan speed, defaulting to max when none is set.
+      if (!running) {
+        const currentSpeed = Number(this.service.getCharacteristic(this.platform.Characteristic.RotationSpeed).value)
+        const speed = currentSpeed > VACUUM_SPEEDS.OFF ? currentSpeed : VACUUM_SPEEDS.MAX
+        await this.setFanSpeed(speed)
+          .catch(createPromiseRejectionHandler(this.log, 'starting the vacuum'))
+      }
+    } else {
+      // Turning off: stop cleaning.
+      if (running) {
         await this.setFanSpeed(0)
           .catch(createPromiseRejectionHandler(this.log, 'setting fan speed'))
       }

@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/)
 
+## v1.5.3 (Pending Release)
+
+### Changed
+
+- fix: actually start the vacuum when its control is switched on, instead of the switch doing nothing and reverting to off (#68)
+
 ## v1.5.2 (2026-07-22)
 
 ### Changed
