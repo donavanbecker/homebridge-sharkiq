@@ -388,8 +388,15 @@ class SharkIqVacuum {
   // Start the vacuum cleaning
   async clean_rooms(rooms): Promise<void> {
     try {
-      const payload = this._encode_room_list(rooms)
-      await this.set_property_value(Properties.AREAS_TO_CLEAN, payload)
+      // Only write an area filter for a genuine room-specific clean. For a
+      // whole-house clean (no rooms) we send START on its own, the same as the
+      // physical button and the Shark app. Writing the placeholder '*' area
+      // filter first told the vacuum to clean an empty set of areas, so it
+      // accepted START but never left the dock (#68).
+      if (rooms && rooms.length > 0) {
+        const payload = this._encode_room_list(rooms)
+        await this.set_property_value(Properties.AREAS_TO_CLEAN, payload)
+      }
       await this.set_operating_mode(OperatingModes.START)
     } catch {
       this.log.debug('Promise Rejected with starting clean.')
