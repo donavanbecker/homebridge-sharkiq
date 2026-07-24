@@ -167,6 +167,10 @@ class SharkIqVacuum {
           return
         }
       }
+      // Log the successful outcome too, so a start/stop command that the API
+      // accepts (but the vacuum then ignores) can be told apart from one the
+      // API rejects (#68).
+      this.log.debug(`Set property ${property_name} to ${value} accepted by Shark (Status: ${resp.status}).`)
       this.properties_full[property_name] = value
     } catch {
       this.log.debug('Promise Rejected with setting property value.')
@@ -335,6 +339,8 @@ class SharkIqVacuum {
   // Set vacuum operating mode
   async set_operating_mode(mode: number): Promise<void> {
     try {
+      const modeName = Object.keys(OperatingModes).find(k => OperatingModes[k] === mode) ?? mode
+      this.log.debug(`Setting operating mode to ${modeName} (${mode}).`)
       await this.set_property_value(Properties.OPERATING_MODE, mode)
     } catch {
       this.log.debug('Promise Rejected with setting opertating mode.')
@@ -394,8 +400,11 @@ class SharkIqVacuum {
       // filter first told the vacuum to clean an empty set of areas, so it
       // accepted START but never left the dock (#68).
       if (rooms && rooms.length > 0) {
+        this.log.debug(`Starting a clean of ${rooms.length} room(s).`)
         const payload = this._encode_room_list(rooms)
         await this.set_property_value(Properties.AREAS_TO_CLEAN, payload)
+      } else {
+        this.log.debug('Starting a whole-house clean.')
       }
       await this.set_operating_mode(OperatingModes.START)
     } catch {
