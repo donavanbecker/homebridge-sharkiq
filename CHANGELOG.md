@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file. This projec
 ### Changed
 
 - fix: actually start the vacuum when its control is switched on, instead of the switch doing nothing and reverting to off (#68)
+- fix(matter): handle the home app's play, pause and dock buttons, so the vacuum responds instead of rejecting the command (#68)
 
 ## v1.5.2 (2026-07-22)
 

@@ -228,23 +228,50 @@ export class SharkIQMatterPlatform extends SharkIQPlatform {
   /**
    * Build Matter command handlers for an RVC accessory.
    *
-   * Handlers respond to Matter `changeToMode` commands (user starting or
-   * stopping the vacuum from a Matter controller or Apple Home) by calling
-   * the appropriate SharkIQ API methods.
+   * Two clusters carry the control commands, and different controllers use
+   * different ones:
+   *
+   * - `rvcRunMode.changeToMode` - switching between the Idle and Cleaning modes.
+   * - `rvcOperationalState.pause` / `resume` / `goHome` - Apple Home's tile uses
+   *   these. Its play button sends `resume`, its pause button `pause`, and the
+   *   dock button `goHome`. Without handlers for them the plugin returned
+   *   `UnsupportedCommand` and the vacuum never moved (#68).
+   *
+   * `resume` maps to a fresh start when the vacuum is docked or idle, and to a
+   * plain resume-in-place when it is already paused mid-clean.
    */
   private _buildMatterHandlers(_matterApi: any, _uuid: string, vacuumDevice: SharkIqVacuum): Record<string, unknown> {
+    const startCleaning = () => vacuumDevice.clean_rooms([])
+      .catch(createPromiseRejectionHandler(this.log, 'Matter start cleaning'))
+    const returnToDock = () => vacuumDevice.cancel_clean()
+      .catch(createPromiseRejectionHandler(this.log, 'Matter return to dock'))
+
     return {
       rvcRunMode: {
         changeToMode: async ({ newMode }: { newMode: number }) => {
           if (newMode === 1) {
-            // Start cleaning
-            await vacuumDevice.clean_rooms([])
-              .catch(createPromiseRejectionHandler(this.log, 'Matter start cleaning'))
+            await startCleaning()
           } else {
-            // Return to dock / stop
-            await vacuumDevice.cancel_clean()
-              .catch(createPromiseRejectionHandler(this.log, 'Matter cancel cleaning'))
+            await returnToDock()
           }
+        },
+      },
+      rvcOperationalState: {
+        resume: async () => {
+          // Resume in place if a clean is paused, otherwise start a fresh clean
+          if (vacuumDevice.operating_mode() === OperatingModes.PAUSE) {
+            await vacuumDevice.set_operating_mode(OperatingModes.START)
+              .catch(createPromiseRejectionHandler(this.log, 'Matter resume cleaning'))
+          } else {
+            await startCleaning()
+          }
+        },
+        pause: async () => {
+          await vacuumDevice.set_operating_mode(OperatingModes.PAUSE)
+            .catch(createPromiseRejectionHandler(this.log, 'Matter pause cleaning'))
+        },
+        goHome: async () => {
+          await returnToDock()
         },
       },
     }
