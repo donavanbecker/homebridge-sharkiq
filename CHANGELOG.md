@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/)
 
-## v1.6.0 (Pending Release)
+## v1.6.0 (2026-07-25)
 
 ### Changed
 
