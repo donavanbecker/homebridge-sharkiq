@@ -1,8 +1,9 @@
 import type { Logger } from 'homebridge'
 
+import { join } from 'node:path'
 import process from 'node:process'
 
-import { generateURL, getAuthData, getOAuthData, removeFile, setAuthData } from './config.js'
+import { generateURL, getAuthData, getOAuthData, removeFile, setAuth0Data, setAuthData } from './config.js'
 import { global_vars } from './sharkiq-js/const.js'
 import { addSeconds } from './utils.js'
 
@@ -47,8 +48,20 @@ export async function exchangeOAuthCodeForAuthTokens(
   if (!response.ok) {
     return Promise.reject(new Error(`Unable to get token data. HTTP ${response.status}`))
   }
-  const tokenData = await response.json() as { id_token: string }
+  const tokenData = await response.json() as { id_token: string, refresh_token?: string, expires_in?: number }
   log?.debug('Token Data:', JSON.stringify(tokenData))
+
+  // Keep the Auth0 token set too - the newer SharkNinja device API signs its
+  // requests with the id_token directly, and the refresh token lets the
+  // plugin renew it without another browser sign-in
+  if (tokenData.refresh_token) {
+    const auth0File = join(auth_file, '..', global_vars.AUTH0_FILE)
+    await setAuth0Data(auth0File, {
+      id_token: tokenData.id_token,
+      refresh_token: tokenData.refresh_token,
+      expiration: addSeconds(new Date(), tokenData.expires_in ?? 3600),
+    }).catch(() => undefined)
+  }
 
   const reqData2 = {
     method: 'POST',

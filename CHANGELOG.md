@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/)
 
-## v1.5.3 (Pending Release)
+## v1.6.0 (Pending Release)
 
 ### Changed
 
@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file. This projec
 - chore: log the start command and whether shark accepts it in debug mode, to diagnose a vacuum that will not leave the dock from homekit (#68)
 - style(ui): standardise the custom ui layout and sync the support tab with the readme
 - fix(ui): fall back to the older copy command when the clipboard api is unavailable, so the oauth url copy button works over plain http (#84)
+- feat: send vacuum commands through the newer sharkninja api that the current sharkclean app uses, so newer vacuums actually respond, keeping ayla as the fallback (#68)
 
 ## v1.5.2 (2026-07-22)
 

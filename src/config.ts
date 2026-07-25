@@ -1,4 +1,4 @@
-import type { AuthData, OAuthData } from './type'
+import type { Auth0Data, AuthData, OAuthData } from './type'
 
 import crypto from 'node:crypto'
 import { promises as fs } from 'node:fs'
@@ -38,6 +38,23 @@ async function setOAuthData(oAuthFilePath: string, data: OAuthData): Promise<voi
     await fs.writeFile(oAuthFilePath, JSON.stringify(data, null, 4), 'utf8')
   } catch (error) {
     return Promise.reject(new Error(`Error writing OAuth data: ${error}`))
+  }
+}
+
+export async function getAuth0Data(auth0FilePath: string): Promise<Auth0Data> {
+  try {
+    const data = await fs.readFile(auth0FilePath, 'utf8')
+    return JSON.parse(data)
+  } catch (error) {
+    return Promise.reject(new Error(`Error reading Auth0 data: ${error}`))
+  }
+}
+
+export async function setAuth0Data(auth0FilePath: string, data: Auth0Data): Promise<void> {
+  try {
+    await fs.writeFile(auth0FilePath, JSON.stringify(data, null, 4), 'utf8')
+  } catch (error) {
+    return Promise.reject(new Error(`Error writing Auth0 data: ${error}`))
   }
 }
 

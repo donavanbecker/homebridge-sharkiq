@@ -10,6 +10,7 @@ import { SharkIQAccessory } from './platformAccessory.js'
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
 import { get_ayla_api } from './sharkiq-js/ayla_api.js'
 import { global_vars } from './sharkiq-js/const.js'
+import { SkegoxApi } from './sharkiq-js/skegox_api.js'
 
 // SharkIQPlatform Main Class
 export class SharkIQPlatform implements DynamicPlatformPlugin {
@@ -98,9 +99,33 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
       const ayla_api = get_ayla_api(auth_file, this.log, europe)
       await ayla_api.sign_in()
       const devices = await ayla_api.get_devices()
+      await this.enableSkegox(devices, storagePath, europe)
       return devices
     } catch (error) {
       return Promise.reject(error)
+    }
+  }
+
+  // Connect to the newer SharkNinja device API and link each vacuum to it.
+  // Newer vacuums only act on commands sent through this API, so commands are
+  // routed there first when the vacuum is known to it (#68). Needs the Auth0
+  // token set that the OAuth Assistant stores at sign-in - without it the
+  // plugin keeps working through the Ayla API alone.
+  enableSkegox = async (devices: SharkIqVacuum[], storagePath: string, europe: boolean): Promise<void> => {
+    const auth0_file = join(storagePath, global_vars.AUTH0_FILE)
+    try {
+      const skegox = new SkegoxApi(this.log, auth0_file, europe)
+      const mapped = await skegox.init()
+      if (mapped > 0) {
+        devices.forEach((device) => {
+          device.skegox = skegox
+        })
+        this.log.info(`Connected to the new SharkNinja API (${mapped} vacuum(s) linked) - commands will be sent there first.`)
+      } else {
+        this.log.info('No vacuums found on the new SharkNinja API - commands will use the Ayla API.')
+      }
+    } catch (error) {
+      this.log.info(`Could not connect to the new SharkNinja API - commands will use the Ayla API. If a vacuum ignores start/stop commands, sign in again through the OAuth Assistant in the plugin settings to enable the new API. (${error})`)
     }
   }
 

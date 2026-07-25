@@ -1,6 +1,7 @@
 import type { Logger } from 'homebridge'
 
 import type { AylaApi } from './ayla_api.js'
+import type { SkegoxApi } from './skegox_api.js'
 
 import { Buffer, transcode } from 'node:buffer'
 
@@ -50,6 +51,7 @@ class SharkIqVacuum {
   _firmware_version: string
   log: Logger
   _error: string | null
+  skegox: SkegoxApi | null
 
   // Shark IQ vacuum entity
   constructor(ayla_api: AylaApi, device_dct: DeviceDct, log: Log, europe = false) {
@@ -67,6 +69,7 @@ class SharkIqVacuum {
     this._firmware_version = ''
     this.log = log
     this._error = null
+    this.skegox = null
   }
 
   // Get oem model number
@@ -141,6 +144,21 @@ class SharkIqVacuum {
     }
     if (value.value) {
       value = value.value
+    }
+
+    // Newer vacuums only act on commands sent through the newer SharkNinja
+    // API - the Ayla request below succeeds but the vacuum ignores it (#68).
+    // Try the new API first when this vacuum is known to it, and fall back
+    // to Ayla on any error so older setups keep working.
+    if (this.skegox?.available(this._dsn)) {
+      try {
+        await this.skegox.setProperty(this._dsn, property_name, value)
+        this.log.debug(`Set property ${property_name} to ${value} via the new SharkNinja API.`)
+        this.properties_full[property_name] = value
+        return
+      } catch (error) {
+        this.log.debug(`New SharkNinja API could not set ${property_name} (${error}), falling back to the Ayla API.`)
+      }
     }
 
     const end_point = this.set_property_endpoint(`SET_${property_name}`)

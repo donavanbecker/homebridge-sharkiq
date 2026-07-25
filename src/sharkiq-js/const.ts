@@ -23,10 +23,23 @@ const global_vars = {
     FILE: '.sharkiq_oauth.json',
   },
   FILE: '.sharkiq.json',
+  AUTH0_FILE: '.sharkiq_auth0.json',
   EU_DEVICE_URL: 'https://ads-eu.aylanetworks.com',
   EU_LOGIN_URL: 'https://user-field-eu.aylanetworks.com',
   EU_SHARK_APP_ID: 'android_shark_prod-lg-id',
   EU_SHARK_APP_SECRET: 'android_shark_prod-xuf9mlHOo0p3Ty5bboFROSyRBlE',
+  // The newer SharkNinja device API used by the current SharkClean app.
+  // Newer vacuums only act on commands sent here - the Ayla API accepts
+  // them but the vacuum ignores them. Endpoint and key values are from the
+  // MIT-licensed shark2mqtt project (github.com/CamSoper/shark2mqtt).
+  SKEGOX: {
+    BASE_URL: 'https://stakra.slatra.thor.skegox.com',
+    API_KEY: 'QQdbSrgicK2PxvACI1a2P5AN2xgO78Lw1VvnYczb',
+  },
+  EU_SKEGOX: {
+    BASE_URL: 'https://stakra.rannsaka.thor.skegox.com',
+    API_KEY: 'T5m8d45crZDV9I5aCEZr4n2gSqJW64r2RNXqqhh1',
+  },
 }
 
 export { global_vars }

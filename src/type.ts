@@ -10,4 +10,10 @@ interface OAuthData {
   code_challenge: string
 }
 
-export { AuthData, OAuthData }
+interface Auth0Data {
+  id_token: string
+  refresh_token: string
+  expiration: Date
+}
+
+export { Auth0Data, AuthData, OAuthData }
