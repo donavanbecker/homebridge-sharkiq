@@ -203,10 +203,21 @@
 
         copyOauthUrlBtn.addEventListener('click', async () => {
           try {
-            await navigator.clipboard.writeText(oauthUrlLink.value);
+            if (navigator.clipboard && window.isSecureContext) {
+              await navigator.clipboard.writeText(oauthUrlLink.value);
+            } else {
+              // The clipboard API only exists on secure (https) pages, and many
+              // local Homebridge UIs run over plain http, so fall back to
+              // selecting the text and using the older copy command.
+              oauthUrlLink.select();
+              oauthUrlLink.setSelectionRange(0, oauthUrlLink.value.length);
+              if (!document.execCommand('copy')) {
+                throw new Error('copy command rejected');
+              }
+            }
             homebridge.toast.success('OAuth URL copied to clipboard.', 'Copied');
           } catch {
-            homebridge.toast.error('Unable to copy OAuth URL.', 'Error');
+            homebridge.toast.error('Unable to copy automatically - please select the URL and copy it manually.', 'Error');
           }
         });
 
