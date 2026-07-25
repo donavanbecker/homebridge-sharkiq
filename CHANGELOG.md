@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/)
 
+## v1.6.1 (Pending Release)
+
+### Changed
+
+- fix: use the european callback address when the eu region is selected, so the login page no longer rejects it as an allowed callback url (#85)
+
 ## v1.6.0 (2026-07-25)
 
 ### Changed

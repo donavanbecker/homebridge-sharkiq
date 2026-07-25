@@ -17,7 +17,10 @@ const global_vars = {
     CLIENT_ID: 'rKDx9O18dBrY3eoJMTkRiBZHDvd9Mx1I',
     AUTH_URL: 'https://logineu.sharkninja.com/authorize',
     TOKEN_URL: 'https://logineu.sharkninja.com/oauth/token',
-    REDIRECT_URI: 'com.sharkninja.shark://login.sharkninja.com/ios/com.sharkninja.shark/callback',
+    // Must point at the EU host - using the US one is rejected by SharkNinja
+    // with "the provided redirect_uri is not in the list of allowed callback
+    // URLs" as soon as the login page loads (#85)
+    REDIRECT_URI: 'com.sharkninja.shark://logineu.sharkninja.com/ios/com.sharkninja.shark/callback',
     AUTH0_CLIENT: 'eyJ2ZXJzaW9uIjoiMi42LjAiLCJuYW1lIjoiQXV0aDAuc3dpZnQiLCJlbnI6eyJpVCI6IjE3LjYiLCJzd2lmdCI6IjUueCJ9fQ==',
     SCOPES: 'openid profile email offline_access read:users read:current_user read:user_idp_tokens',
     FILE: '.sharkiq_oauth.json',
