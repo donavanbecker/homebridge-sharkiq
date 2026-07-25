@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file. This projec
 - fix(ui): fall back to the older copy command when the clipboard api is unavailable, so the oauth url copy button works over plain http (#84)
 - feat: send vacuum commands through the newer sharkninja api that the current sharkclean app uses, so newer vacuums actually respond, keeping ayla as the fallback (#68)
 - chore: log whether each vacuum is live on the new api and read the state back after a mode command, to diagnose a start command that the api accepts but the vacuum ignores (#68)
+- feat: read the vacuum state from the newer sharkninja api too, so homekit shows the true cleaning status for vacuums that no longer report to ayla (#68)
 
 ## v1.5.2 (2026-07-22)
 

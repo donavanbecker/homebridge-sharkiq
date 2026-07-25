@@ -22,6 +22,7 @@ export class SkegoxApi {
   private user_id: string | null = null
   private household_id: string | null = null
   private dsn_to_device_id: Map<string, string> = new Map()
+  private state_cache: Map<string, { at: number, values: Record<string, unknown> }> = new Map()
 
   constructor(log: Logger, auth0_file: string, europe = false) {
     this.log = log
@@ -173,6 +174,32 @@ export class SkegoxApi {
       shadow: { properties: { desired: { [propertyName]: value } } },
     })
     this.log.debug(`New-API response for setting ${propertyName}: ${JSON.stringify(response)}`)
+  }
+
+  // Read the vacuum's live state (telemetry plus reported shadow properties),
+  // keyed by the same clean property names the Ayla API uses. A very recent
+  // read is reused, since the HAP and Matter platforms can poll in quick
+  // succession.
+  async getPropertyValues(dsn: string): Promise<Record<string, unknown>> {
+    const key = String(dsn).trim().toUpperCase()
+    const deviceId = this.dsn_to_device_id.get(key)
+    if (!deviceId || !this.household_id) {
+      return Promise.reject(new Error(`Vacuum ${dsn} is not mapped on the new SharkNinja API.`))
+    }
+    const cached = this.state_cache.get(key)
+    if (cached && Date.now() - cached.at < 4000) {
+      return cached.values
+    }
+    const device = await this.request('GET', `/devicesEndUserController/${this.household_id}/devices/${deviceId}`)
+    const values: Record<string, unknown> = {}
+    Object.entries(device?.telemetry ?? {}).forEach(([k, v]) => {
+      values[k] = v
+    })
+    Object.entries(device?.shadow?.properties?.reported ?? {}).forEach(([k, v]) => {
+      values[k] = (v && typeof v === 'object' && 'value' in (v as Record<string, unknown>)) ? (v as Record<string, unknown>).value : v
+    })
+    this.state_cache.set(key, { at: Date.now(), values })
+    return values
   }
 
   // One-line summary of what the new API currently holds for this vacuum,

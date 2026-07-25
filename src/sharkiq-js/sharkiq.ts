@@ -221,6 +221,13 @@ class SharkIqVacuum {
     const full_update = !property_list
     const url = this.update_url
     try {
+      // Newer vacuums no longer report fresh state to the Ayla API, so read
+      // the live state from the newer SharkNinja API when this vacuum is on
+      // it (#68). Full updates still go to Ayla afterwards for the device
+      // metadata, with the live state overlaid on top at the end.
+      if (!full_update && property_list.length !== 0 && await this._apply_skegox_state()) {
+        return 0
+      }
       if (!full_update && property_list.length !== 0) {
         const params = new URLSearchParams()
         property_list.forEach((property) => {
@@ -305,6 +312,7 @@ class SharkIqVacuum {
             }
           } else {
             this._do_update(full_update, properties)
+            await this._apply_skegox_state()
             return 0
           }
         } catch (e) {
@@ -317,6 +325,24 @@ class SharkIqVacuum {
     } catch (e) {
       this.log.debug('Promise Rejected with updating properties.')
       return ERROR_DELAY
+    }
+  }
+
+  // Overlay the live state from the newer SharkNinja API onto the local
+  // property values, for vacuums that are live on it. Returns whether the
+  // overlay happened, so callers know if the Ayla read can be skipped.
+  async _apply_skegox_state(): Promise<boolean> {
+    if (!this.skegox?.available(this._dsn)) {
+      return false
+    }
+    try {
+      const values = await this.skegox.getPropertyValues(this._dsn)
+      this.property_values = { ...this.property_values, ...values }
+      this.log.debug(`Read ${Object.keys(values).length} properties via the new SharkNinja API.`)
+      return true
+    } catch (error) {
+      this.log.debug(`New SharkNinja API state read failed (${error}), falling back to the Ayla API.`)
+      return false
     }
   }
 

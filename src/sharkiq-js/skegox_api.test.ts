@@ -39,7 +39,12 @@ function stubFetch(overrides: { failFirstPatch?: boolean } = {}): ReturnType<typ
       return ok({ items: [{ deviceId: 'SND1' }] })
     }
     if (url.includes('/devices/SND1') && options.method === 'GET') {
-      return ok({ registry: { Battery_Serial_Num: 'DSN123-SND1' } })
+      return ok({
+        registry: { Battery_Serial_Num: 'DSN123-SND1' },
+        telemetry: { Battery_Capacity: 88 },
+        shadow: { properties: { reported: { Operating_Mode: { value: 2 }, DockedStatus: 0 } } },
+        connectivityStatus: { connected: true },
+      })
     }
     if (options.method === 'PATCH') {
       patchCount += 1
@@ -123,6 +128,16 @@ describe('skegoxApi', () => {
     const api = new SkegoxApi(log, writeAuth0File(dir))
     await api.init()
     await expect(api.setProperty('UNKNOWN', 'Operating_Mode', 2)).rejects.toThrow('not mapped')
+  })
+
+  it('reads live state keyed by clean property names', async () => {
+    stubFetch()
+    const api = new SkegoxApi(log, writeAuth0File(dir))
+    await api.init()
+    const values = await api.getPropertyValues('DSN123')
+    expect(values.Battery_Capacity).toBe(88)
+    expect(values.Operating_Mode).toBe(2)
+    expect(values.DockedStatus).toBe(0)
   })
 
   it('describes the shadow state for a mapped vacuum', async () => {
