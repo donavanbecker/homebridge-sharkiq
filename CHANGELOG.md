@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file. This projec
 - fix(matter): handle the home app's play, pause and dock buttons, so the vacuum responds instead of rejecting the command (#68)
 - fix: start a whole-house clean with just the start command, so the vacuum actually leaves the dock instead of being told to clean no areas (#68)
 - chore: log the start command and whether shark accepts it in debug mode, to diagnose a vacuum that will not leave the dock from homekit (#68)
+- style(ui): standardise the custom ui layout and sync the support tab with the readme
 
 ## v1.5.2 (2026-07-22)
 
