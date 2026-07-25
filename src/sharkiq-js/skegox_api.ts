@@ -104,7 +104,8 @@ export class SkegoxApi {
       const text = await response.text().catch(() => '')
       return Promise.reject(new Error(`SharkNinja API error (HTTP ${response.status}): ${text}`))
     }
-    return response.json()
+    // Some endpoints reply with an empty body, which is still a success
+    return response.json().catch(() => null)
   }
 
   // Discover the user id (from the signed-in token), the household, and each
@@ -142,7 +143,10 @@ export class SkegoxApi {
         if (batterySerial.includes('-')) {
           const dsn = batterySerial.split('-')[0].trim().toUpperCase()
           this.dsn_to_device_id.set(dsn, deviceId)
-          this.log.debug(`Mapped vacuum DSN ${dsn} to new-API device ${deviceId}.`)
+          // A vacuum can exist in the new registry without actually being
+          // live on it - its shadow then accepts writes that nothing reads
+          const connected = device?.connectivityStatus?.connected === true
+          this.log.debug(`Mapped vacuum DSN ${dsn} to new-API device ${deviceId} (connected: ${connected}).`)
         } else {
           this.log.debug(`No battery serial number for new-API device ${deviceId}, cannot map it to a DSN.`)
         }
@@ -165,8 +169,23 @@ export class SkegoxApi {
     if (!deviceId || !this.household_id) {
       return Promise.reject(new Error(`Vacuum ${dsn} is not mapped on the new SharkNinja API.`))
     }
-    await this.request('PATCH', `/devicesEndUserController/${this.household_id}/devices/${deviceId}`, {
+    const response = await this.request('PATCH', `/devicesEndUserController/${this.household_id}/devices/${deviceId}`, {
       shadow: { properties: { desired: { [propertyName]: value } } },
     })
+    this.log.debug(`New-API response for setting ${propertyName}: ${JSON.stringify(response)}`)
+  }
+
+  // One-line summary of what the new API currently holds for this vacuum,
+  // used after a command to see whether the write landed and was picked up
+  async describeState(dsn: string): Promise<string> {
+    const deviceId = this.dsn_to_device_id.get(String(dsn).trim().toUpperCase())
+    if (!deviceId || !this.household_id) {
+      return Promise.reject(new Error(`Vacuum ${dsn} is not mapped on the new SharkNinja API.`))
+    }
+    const device = await this.request('GET', `/devicesEndUserController/${this.household_id}/devices/${deviceId}`)
+    const desired = device?.shadow?.properties?.desired?.Operating_Mode
+    const reported = device?.shadow?.properties?.reported?.Operating_Mode
+    const connected = device?.connectivityStatus?.connected
+    return `desired Operating_Mode=${JSON.stringify(desired)}, reported Operating_Mode=${JSON.stringify(reported)}, connected=${JSON.stringify(connected)}`
   }
 }

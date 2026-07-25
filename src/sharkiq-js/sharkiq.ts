@@ -155,6 +155,17 @@ class SharkIqVacuum {
         await this.skegox.setProperty(this._dsn, property_name, value)
         this.log.debug(`Set property ${property_name} to ${value} via the new SharkNinja API.`)
         this.properties_full[property_name] = value
+        // Read the state back shortly after a mode command, to show in the
+        // debug log whether the vacuum actually picked the command up
+        if (property_name === Properties.OPERATING_MODE) {
+          setTimeout(async () => {
+            try {
+              this.log.debug(`New-API state check for ${this._dsn}: ${await this.skegox!.describeState(this._dsn)}`)
+            } catch (error) {
+              this.log.debug(`New-API state check failed for ${this._dsn}: ${error}`)
+            }
+          }, 4000)
+        }
         return
       } catch (error) {
         this.log.debug(`New SharkNinja API could not set ${property_name} (${error}), falling back to the Ayla API.`)

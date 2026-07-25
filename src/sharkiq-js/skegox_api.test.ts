@@ -124,4 +124,13 @@ describe('skegoxApi', () => {
     await api.init()
     await expect(api.setProperty('UNKNOWN', 'Operating_Mode', 2)).rejects.toThrow('not mapped')
   })
+
+  it('describes the shadow state for a mapped vacuum', async () => {
+    stubFetch()
+    const api = new SkegoxApi(log, writeAuth0File(dir))
+    await api.init()
+    const state = await api.describeState('DSN123')
+    expect(state).toContain('desired Operating_Mode=')
+    expect(state).toContain('connected=')
+  })
 })
