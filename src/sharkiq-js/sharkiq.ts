@@ -112,15 +112,21 @@ class SharkIqVacuum {
     return this.get_property_value(Properties.POWER_MODE)
   }
 
-  // Update vacuum details such as the model and serial number.
+  // Update vacuum details such as the model and serial number. These come
+  // from optional properties, so a vacuum that does not report them must not
+  // take the whole plugin down with it (#85).
   _update_metadata(): void {
     const model_and_serial = this.get_property_value(Properties.DEVICE_SERIAL_NUMBER)
-    const model_serial_split = model_and_serial.split(/(\s+)/).filter((e) => {
-      return e.trim().length > 0
-    })
-    this._vac_model_number = model_serial_split[0]
-    this._vac_serial_number = model_serial_split[1]
-    this._firmware_version = this.get_property_value(Properties.ROBOT_FIRMWARE_VERSION)
+    if (typeof model_and_serial === 'string' && model_and_serial.trim() !== '') {
+      const model_serial_split = model_and_serial.split(/(\s+)/).filter((e) => {
+        return e.trim().length > 0
+      })
+      this._vac_model_number = model_serial_split[0] ?? ''
+      this._vac_serial_number = model_serial_split[1] ?? ''
+    } else {
+      this.log.debug(`No model or serial number reported for ${this._dsn}.`)
+    }
+    this._firmware_version = this.get_property_value(Properties.ROBOT_FIRMWARE_VERSION) ?? ''
   }
 
   // Get url for the endpoint of the setting a property API
