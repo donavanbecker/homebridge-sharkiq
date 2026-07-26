@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file. This projec
 
 - fix: use the european callback address when the eu region is selected, so the login page no longer rejects it as an allowed callback url (#85)
 - fix: do not crash the whole plugin when a vacuum does not report a model or serial number (#85)
+- fix(schema): declare required fields the standard way so the homebridge ui stops reporting a config validation failure
 
 ## v1.6.0 (2026-07-25)
 

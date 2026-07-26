@@ -14,14 +14,12 @@
       },
       "oAuthCode": {
         "title": "SharkClean OAuth Code",
-        "type": "string",
-        "required": false
+        "type": "string"
       },
       "vacuums": {
         "title": "SharkClean Vacuum Devices",
         "description": "The DSNs of the vacuums to add. Leave this empty to add every vacuum on your account (recommended unless you want to add only some of them).",
         "type": "array",
-        "required": false,
         "items": {
           "title": "SharkClean DSN",
           "type": "string"
@@ -31,40 +29,34 @@
         "title": "SharkClean European Server",
         "description": "Set to true if you are located in Europe or the UK. SharkClean uses different servers for US and European regions.",
         "type": "boolean",
-        "required": false,
         "default": false
       },
       "invertDockedStatus": {
         "title": "Invert Vacuum Docked Status",
         "type": "boolean",
-        "required": false,
         "default": false
       },
       "dockedUpdateInterval": {
         "title": "Docked Update Interval",
         "type": "integer",
-        "required": false,
         "default": 30000
       },
       "externalAccessory": {
         "title": "Publish as External Accessory",
         "description": "When enabled, each vacuum is published as a standalone external accessory with its own HomeKit pairing code, instead of being bridged through Homebridge. Applies to both HAP and Matter registration modes.",
         "type": "boolean",
-        "required": false,
         "default": false
       },
       "preferMatter": {
         "title": "Prefer Matter",
         "description": "When enabled, the plugin will use the Homebridge Matter API (requires Homebridge v2.0+ with Matter enabled). Falls back to HAP if Matter is unavailable.",
         "type": "boolean",
-        "required": false,
         "default": true
       },
       "enableMatter": {
         "title": "Enable Matter",
         "description": "Allow the plugin to use Homebridge Matter support when available. Set to false to always use HAP accessories.",
         "type": "boolean",
-        "required": false,
         "default": true
       }
     }
