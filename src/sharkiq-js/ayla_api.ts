@@ -7,6 +7,7 @@ import { getAuthData, setAuthData } from '../config.js'
 import { TIMEOUTS } from '../constants.js'
 import { addSeconds, isValidDate, safeJsonParse, subtractSeconds } from '../utils.js'
 import { global_vars } from './const.js'
+import { Properties } from './properties.js'
 import { SharkIqVacuum } from './sharkiq.js'
 
 interface APIResponse {
@@ -317,16 +318,31 @@ class AylaApi {
   async get_devices(update = true): Promise<SharkIqVacuum[]> {
     try {
       const d = await this.list_devices()
+      this.log.debug(`SharkNinja account lists ${d.length} device(s): ${
+        d.map(device => `${device.product_name || 'unnamed'} (${device.dsn}, ${device.oem_model || 'no oem model'})`).join('; ') || 'none'
+      }`)
       const devices = d.map((device: DeviceDct) => {
         return new SharkIqVacuum(this, device, this.log, this.europe)
       })
-      if (update) {
-        for (let i = 0; i < devices.length; i++) {
-          await devices[i].update([])
-          devices[i]._update_metadata()
-        }
+      if (!update) {
+        return devices
       }
-      return devices
+      // A SharkNinja account holds every appliance the brand makes, not just
+      // vacuums - a Ninja Woodfire grill turned up on one and was published to
+      // HomeKit as a vacuum (#85). Operating_Mode is what every vacuum control
+      // in this plugin reads and writes, so a device without it cannot be
+      // driven as one whatever it is.
+      const vacuums: SharkIqVacuum[] = []
+      for (const device of devices) {
+        await device.update([])
+        device._update_metadata()
+        if (device.get_property_value(Properties.OPERATING_MODE) === undefined) {
+          this.log.info(`Ignoring "${device.name}" (${device.serial_number}) - it is on your SharkNinja account but is not a vacuum.`)
+          continue
+        }
+        vacuums.push(device)
+      }
+      return vacuums
     } catch (error) {
       this.log.error(`${error}`)
       return Promise.reject(new Error('Error: Unable to get devices.'))

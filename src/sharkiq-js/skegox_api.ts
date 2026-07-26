@@ -140,6 +140,10 @@ export class SkegoxApi {
         const device = await this.request('GET', `/devicesEndUserController/${this.household_id}/devices/${deviceId}`)
         // The battery serial number has the format "<Ayla DSN>-<device id>",
         // which links the device on this API to the one Ayla reports
+        // Log what the account actually holds - a SharkNinja account can carry
+        // non-vacuum appliances, and a vacuum can be present here while Ayla
+        // never lists it, which looks identical to "no vacuum found" (#85)
+        const label = device?.registry?.Product_Name ?? device?.name ?? device?.registry?.Model_Number ?? 'unnamed'
         const batterySerial: string = device?.registry?.Battery_Serial_Num ?? ''
         if (batterySerial.includes('-')) {
           const dsn = batterySerial.split('-')[0].trim().toUpperCase()
@@ -147,9 +151,9 @@ export class SkegoxApi {
           // A vacuum can exist in the new registry without actually being
           // live on it - its shadow then accepts writes that nothing reads
           const connected = device?.connectivityStatus?.connected === true
-          this.log.debug(`Mapped vacuum DSN ${dsn} to new-API device ${deviceId} (connected: ${connected}).`)
+          this.log.debug(`Mapped vacuum DSN ${dsn} ("${label}") to new-API device ${deviceId} (connected: ${connected}).`)
         } else {
-          this.log.debug(`No battery serial number for new-API device ${deviceId}, cannot map it to a DSN.`)
+          this.log.debug(`New-API device ${deviceId} ("${label}") has no battery serial number, cannot map it to a DSN.`)
         }
       } catch (error) {
         this.log.debug(`Unable to read new-API device ${deviceId}: ${error}`)
