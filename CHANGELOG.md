@@ -2,15 +2,17 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/)
 
-## v1.6.1 (Pending Release)
+## v1.6.1 (2026-07-28)
 
 ### Changed
 
 - fix: use the european callback address when the eu region is selected, so the login page no longer rejects it as an allowed callback url (#85)
+- docs(github): name this plugin's devices in the issue forms instead of meater
 - fix: do not crash the whole plugin when a vacuum does not report a model or serial number (#85)
 - fix(schema): declare required fields the standard way so the homebridge ui stops reporting a config validation failure
-- fix: ignore non-vacuum appliances on your sharkninja account, instead of adding them to homekit as vacuums (#85)
 - chore: declare the supports-hap transport keyword for the homebridge ui
+- fix: ignore non-vacuum appliances on your sharkninja account, instead of adding them to homekit as vacuums (#85)
+- chore(deps): dependency updates
 
 ## v1.6.0 (2026-07-25)
 
