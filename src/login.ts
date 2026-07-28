@@ -11,6 +11,26 @@ interface LoginLogger {
   debug: (message: string, ...parameters: any[]) => void
 }
 
+/**
+ * Turn a failed token exchange into something a user can act on.
+ *
+ * A 403 here is by far the most common failure and it almost never means what
+ * the bare status suggests. The login code is single-use and short-lived, so
+ * it is already spent if the SharkClean app opened the callback (it treats it
+ * as an Alexa-style account link, consuming the code and showing a "Linking
+ * Error"), and it is stale if the sign-in happened a while ago or against an
+ * older login URL. Reported repeatedly in #84 and #85, where the bare
+ * `HTTP 403` sent people looking for a problem with their account.
+ */
+export function describeTokenExchangeFailure(status: number): string {
+  if (status === 403 || status === 401) {
+    return `Unable to get token data. HTTP ${status} - this usually means the login code has already been used or has expired, rather than a problem with your account. `
+      + 'Generate a fresh login URL, sign in again, and exchange the new code straight away. '
+      + 'If the SharkClean app opened when you accepted, it consumed the code - use a browser on a computer that does not have the app installed.'
+  }
+  return `Unable to get token data. HTTP ${status}`
+}
+
 export async function exchangeOAuthCodeForAuthTokens(
   auth_file: string,
   oauth_file: string,
@@ -46,7 +66,7 @@ export async function exchangeOAuthCodeForAuthTokens(
 
   const response = await fetch(oauthConfig.TOKEN_URL, reqData)
   if (!response.ok) {
-    return Promise.reject(new Error(`Unable to get token data. HTTP ${response.status}`))
+    return Promise.reject(new Error(describeTokenExchangeFailure(response.status)))
   }
   const tokenData = await response.json() as { id_token: string, refresh_token?: string, expires_in?: number }
   log?.debug('Token Data:', JSON.stringify(tokenData))
