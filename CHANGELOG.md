@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file. This projec
 - fix(matter): tag the suction levels as vacuum modes, so the accessory registers instead of showing as no response (#88)
 - feat: report errors, water tank and mop plate state over both hap and matter (#88)
 - fix(matter): refresh the vacuum state shortly after a command, so home reflects it straight away instead of up to a poll later (#88)
+- fix(matter): show the battery while the vacuum is charging, and put the normal suction level back in the home mode list (#88)
 
 ## v1.6.2 (2026-07-30)
 

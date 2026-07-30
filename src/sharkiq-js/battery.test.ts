@@ -86,6 +86,9 @@ describe('matterPowerSourceState', () => {
   it('declares a present, non-replaceable battery', () => {
     const state = matterPowerSourceState(readVacuumBattery(50, 0))
     expect(state.batPresent).toBe(true)
+    // ⚠️ matter.js defaults this to false, which claims the vacuum stops working
+    // while docked. Home then showed no battery at all (#88).
+    expect(state.batFunctionalWhileCharging).toBe(true)
     expect(state.batReplacementNeeded).toBe(false)
     expect(state.status).toBe(1)
   })
@@ -127,9 +130,14 @@ describe('matter clean modes', () => {
     expect(hasVacuumOrMop).toBe(true)
   })
 
-  it('gives every mode a tag, which matter requires', () => {
+  // ⚠️ Home names the modes from the standard tags, not from our labels. A mode
+  // carrying only the Vacuum tag has nothing to be called and vanishes from the
+  // picker — which is exactly what happened to Normal in 1.6.3-beta.2 (#88).
+  it('gives every mode a descriptive tag as well as vacuum, or it vanishes from home', () => {
     for (const mode of MATTER_CLEAN_MODES) {
-      expect(mode.modeTags.length).toBeGreaterThan(0)
+      const tags = mode.modeTags.map(t => t.value)
+      expect(tags).toContain(RvcCleanMode.ModeTag.Vacuum)
+      expect(tags.filter(v => v !== RvcCleanMode.ModeTag.Vacuum).length).toBeGreaterThan(0)
     }
   })
 

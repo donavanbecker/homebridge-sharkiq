@@ -291,6 +291,11 @@ export function matterPowerSourceState(battery: VacuumBattery): Record<string, u
     batReplaceability: 0, // NotReplaceable
     // 0 Unknown, 1 IsCharging, 2 IsAtFullCharge, 3 IsNotCharging
     batChargeState: battery.charging ? 1 : (battery.percent === 100 ? 2 : 3),
+    // ⚠️ Mandatory for a rechargeable power source, and matter.js defaults it to
+    // FALSE if you leave it out - which claims the vacuum stops working the
+    // moment it is on the dock. A Shark runs perfectly well from a part charge,
+    // and Home showed no battery at all while it was docked and charging (#88).
+    batFunctionalWhileCharging: true,
   }
 }
 
@@ -320,12 +325,16 @@ export const MODE_TAG = {
  * rolls back — the vacuum shows as No Response in Home. Every mode carries it
  * here, and the tests restate the rule.
  *
- * `Normal` deliberately carries no second tag: it is a fixed suction level, and
- * `auto` in the spec means the device chooses for itself, which it does not.
+ * ⚠️ **Every mode needs a descriptive tag as well as `vacuum`.** `Normal` first
+ * shipped with only the `vacuum` tag, on the reasoning that `auto` means "the
+ * device chooses" and this is a fixed suction level. Home then listed only
+ * "Max" and "Energy Saving" — it names modes from the standard tags, so a mode
+ * carrying nothing but `vacuum` has nothing to be called and drops out of the
+ * picker. Spec purity lost to being usable.
  */
 export const MATTER_CLEAN_MODES = [
   { label: 'Eco', mode: 1, modeTags: [{ value: MODE_TAG.vacuum }, { value: MODE_TAG.lowEnergy }] }, // PowerModes.ECO
-  { label: 'Normal', mode: 0, modeTags: [{ value: MODE_TAG.vacuum }] }, // PowerModes.NORMAL
+  { label: 'Normal', mode: 0, modeTags: [{ value: MODE_TAG.vacuum }, { value: MODE_TAG.auto }] }, // PowerModes.NORMAL
   { label: 'Max', mode: 2, modeTags: [{ value: MODE_TAG.vacuum }, { value: MODE_TAG.max }] }, // PowerModes.MAX
 ] as const
 
