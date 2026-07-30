@@ -64,6 +64,24 @@
         "type": "boolean",
         "default": false,
         "description": "When cleaning specific rooms from HomeKit, use the SharkClean app's \"Matrix Clean\" (a two-pass cross-hatch) instead of a plain single-pass clean. Only affects room cleans, not whole-house ones."
+      },
+      "errorSensor": {
+        "title": "Show an Error sensor",
+        "type": "boolean",
+        "default": false,
+        "description": "Adds a sensor that opens whenever the vacuum reports an error, such as a stuck brushroll or a missing dust bin, so you can be notified. Errors are always written to the Homebridge log whether or not this is switched on."
+      },
+      "waterTankSensor": {
+        "title": "Show a Water Tank sensor",
+        "type": "boolean",
+        "default": false,
+        "description": "Adds a sensor that opens when a fitted water tank has run dry, so you can be notified. A vacuum with no tank fitted stays closed. Only for models that mop."
+      },
+      "mopPlateSensor": {
+        "title": "Show a Mop Plate sensor",
+        "type": "boolean",
+        "default": false,
+        "description": "Adds a sensor that opens when the mop plate is not attached. Only for models that mop."
       }
     }
   },
@@ -124,7 +142,10 @@
         },
         "preferMatter",
         "enableMatter",
-        "matrixClean"
+        "matrixClean",
+        "errorSensor",
+        "waterTankSensor",
+        "mopPlateSensor"
       ]
     }
   ]

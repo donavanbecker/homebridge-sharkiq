@@ -23,8 +23,10 @@ const Properties = {
   DOCKED_STATUS: 'DockedStatus',
   ERROR_CODE: 'Error_Code',
   EVACUATING: 'Evacuating',
+  EXTENDED_ERROR_CODE: 'Extended_Error_Code',
   FIND_DEVICE: 'Find_Device',
   LOW_LIGHT_MISSION: 'LowLightMission',
+  MOP_PLATE_ATTACHED: 'MopPlateAttached',
   NAV_MODULE_FW_VERSION: 'Nav_Module_FW_Version',
   OPERATING_MODE: 'Operating_Mode',
   POWER_MODE: 'Power_Mode',
@@ -35,6 +37,8 @@ const Properties = {
   RSSI: 'RSSI',
   DEVICE_MODEL_NUMBER: 'Device_Model_Number',
   DEVICE_SERIAL_NUMBER: 'Device_Serial_Num',
+  WATER_TANK_EMPTY: 'Water_Tank_Empty',
+  WATER_TANK_INSTALLED: 'WaterTankInstalled',
 }
 
 // Error messages enum

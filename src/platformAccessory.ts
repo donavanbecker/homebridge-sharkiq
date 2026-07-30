@@ -12,6 +12,9 @@ export class SharkIQAccessory {
   private dockedStatusService: Service
   private vacuumPausedService: Service
   private batteryService: Service
+  private errorService?: Service
+  private waterTankService?: Service
+  private mopPlateService?: Service
 
   constructor(
     private readonly platform: SharkIQPlatform,
@@ -21,6 +24,9 @@ export class SharkIQAccessory {
     private readonly log: Logger,
     private readonly invertDockedStatus: boolean,
     private readonly dockedUpdateInterval: number,
+    private readonly showErrorSensor: boolean = false,
+    private readonly showWaterTankSensor: boolean = false,
+    private readonly showMopPlateSensor: boolean = false,
     private dockedDelay: number = 0,
   ) {
     // Get device serial number
@@ -80,6 +86,43 @@ export class SharkIQAccessory {
         ? this.platform.Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW
         : this.platform.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL)
 
+    // These three are opt-in: each adds a tile to Home, so an existing setup
+    // must look exactly as it did until someone asks for them (#88). A fault is
+    // logged as a warning either way, so nobody has to enable a sensor to find
+    // out why the vacuum stopped.
+    //
+    // ⚠️ Not StatusFault on the vacuum itself: HAP does not list it as an
+    // optional characteristic of Fanv2, so it would only earn a warning.
+    if (this.showErrorSensor) {
+      this.errorService = this.accessory.getService('Vacuum Error')
+        || this.accessory.addService(this.platform.Service.ContactSensor, 'Vacuum Error', 'Error')
+      this.errorService.setCharacteristic(this.platform.Characteristic.Name, `${device._name.toString()} Error`)
+      this.errorService.getCharacteristic(this.platform.Characteristic.ContactSensorState)
+        .onGet(() => this.faultState())
+    } else {
+      this.removeServiceIfPresent('Vacuum Error')
+    }
+
+    if (this.showWaterTankSensor) {
+      this.waterTankService = this.accessory.getService('Vacuum Water Tank')
+        || this.accessory.addService(this.platform.Service.ContactSensor, 'Vacuum Water Tank', 'WaterTank')
+      this.waterTankService.setCharacteristic(this.platform.Characteristic.Name, `${device._name.toString()} Water Tank`)
+      this.waterTankService.getCharacteristic(this.platform.Characteristic.ContactSensorState)
+        .onGet(() => this.waterTankState())
+    } else {
+      this.removeServiceIfPresent('Vacuum Water Tank')
+    }
+
+    if (this.showMopPlateSensor) {
+      this.mopPlateService = this.accessory.getService('Vacuum Mop Plate')
+        || this.accessory.addService(this.platform.Service.ContactSensor, 'Vacuum Mop Plate', 'MopPlate')
+      this.mopPlateService.setCharacteristic(this.platform.Characteristic.Name, `${device._name.toString()} Mop Plate`)
+      this.mopPlateService.getCharacteristic(this.platform.Characteristic.ContactSensorState)
+        .onGet(() => this.mopPlateState())
+    } else {
+      this.removeServiceIfPresent('Vacuum Mop Plate')
+    }
+
     this.updateStates()
 
     // Retrieve vacuum states
@@ -137,12 +180,57 @@ export class SharkIQAccessory {
       })
   }
 
+  /** Drops a sensor the user has since switched off, so it does not linger. */
+  private removeServiceIfPresent(name: string): void {
+    const existing = this.accessory.getService(name)
+    if (existing) {
+      this.accessory.removeService(existing)
+    }
+  }
+
+  /** Contact "open" while the vacuum is reporting an error code. */
+  private faultState(): CharacteristicValue {
+    return this.device.fault()
+      ? this.platform.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
+      : this.platform.Characteristic.ContactSensorState.CONTACT_DETECTED
+  }
+
+  /**
+   * Contact "open" when an installed tank has run dry. A vacuum with no tank
+   * fitted reads as closed — it is not mopping, so there is nothing to warn about.
+   */
+  private waterTankState(): CharacteristicValue {
+    return this.device.water_tank().needsRefill
+      ? this.platform.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
+      : this.platform.Characteristic.ContactSensorState.CONTACT_DETECTED
+  }
+
+  /** Contact "closed" while the mop plate is attached. */
+  private mopPlateState(): CharacteristicValue {
+    return this.device.mop_plate_attached() === false
+      ? this.platform.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED
+      : this.platform.Characteristic.ContactSensorState.CONTACT_DETECTED
+  }
+
   // Monitor vacuum state function
   async retrieveVacuumStates(): Promise<void> {
     this.log.debug('Triggering GET Vacuum States')
     let vacuumDocked = false
 
-    await this.device.update([Properties.DOCKED_STATUS, Properties.OPERATING_MODE, Properties.POWER_MODE, Properties.BATTERY_CAPACITY, Properties.CHARGING_STATUS])
+    await this.device.update([
+      Properties.DOCKED_STATUS,
+      Properties.OPERATING_MODE,
+      Properties.POWER_MODE,
+      Properties.BATTERY_CAPACITY,
+      Properties.CHARGING_STATUS,
+      // ⚠️ A characteristic that is never fetched reads as its default forever,
+      // so anything surfaced above has to be listed here too (#88).
+      Properties.ERROR_CODE,
+      Properties.EXTENDED_ERROR_CODE,
+      Properties.WATER_TANK_INSTALLED,
+      Properties.WATER_TANK_EMPTY,
+      Properties.MOP_PLATE_ATTACHED,
+    ])
       .then((delay) => {
         this.dockedDelay = delay
       })
@@ -188,7 +276,30 @@ export class SharkIQAccessory {
         : this.platform.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL,
     )
 
+    const fault = this.device.fault()
+    const waterTank = this.device.water_tank()
+    const mopPlateAttached = this.device.mop_plate_attached()
+    this.errorService?.updateCharacteristic(this.platform.Characteristic.ContactSensorState, this.faultState())
+    this.waterTankService?.updateCharacteristic(this.platform.Characteristic.ContactSensorState, this.waterTankState())
+    this.mopPlateService?.updateCharacteristic(this.platform.Characteristic.ContactSensorState, this.mopPlateState())
+
+    // A fault is worth an actual warning - it usually means the vacuum has
+    // stopped and is waiting for someone to go and free it.
+    if (fault) {
+      this.log.warn(`${this.device._name}: ${fault.message}${fault.extendedCode ? ` (extended code ${fault.extendedCode})` : ''}`)
+    }
+
     this.log.debug('Vacuum Docked:', vacuumDocked, 'Vacuum Active:', vacuumActive, 'Power Mode:', power_mode, 'Battery:', battery.percent ?? 'unknown', battery.charging ? '(charging)' : '')
+    this.log.debug(
+      'Error code:',
+      fault?.code ?? 0,
+      '| Water tank installed:',
+      waterTank.installed ?? 'not reported',
+      'empty:',
+      waterTank.empty ?? 'not reported',
+      '| Mop plate attached:',
+      mopPlateAttached ?? 'not reported',
+    )
   }
 
   // Update paused and active state on switch

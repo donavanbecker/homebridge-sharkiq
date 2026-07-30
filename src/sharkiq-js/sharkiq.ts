@@ -7,7 +7,7 @@ import { Buffer, transcode } from 'node:buffer'
 
 import { safeJsonParse } from '../utils.js'
 import { global_vars } from './const.js'
-import { OperatingModes, PowerModes, Properties } from './properties.js'
+import { ERROR_MESSAGES, OperatingModes, PowerModes, Properties } from './properties.js'
 
 // Strip text from property name
 function _clean_property_name(raw_property_name: string): string {
@@ -334,6 +334,157 @@ export function isKnownCleanMode(mode: number): boolean {
   return MATTER_CLEAN_MODES.some(m => m.mode === mode)
 }
 
+/**
+ * Matter `RvcOperationalState` error state IDs, from the spec (#88).
+ *
+ * As with `MODE_TAG`, `@matter` is not a runtime dependency so these cannot be
+ * imported; every one is asserted against matter's own enum in `status.test.ts`.
+ */
+export const MATTER_ERROR_STATE = {
+  noError: 0,
+  unableToStartOrResume: 1,
+  unableToCompleteOperation: 2,
+  stuck: 65,
+  dustBinMissing: 66,
+  waterTankEmpty: 68,
+  lowBattery: 72,
+  wheelsJammed: 76,
+  brushJammed: 77,
+  navigationSensorObscured: 78,
+} as const
+
+/**
+ * The vacuum's own error codes, mapped onto Matter's error states.
+ *
+ * Matter has a specific state for most of what this vacuum reports, so a
+ * controller can say "brush jammed" rather than just "error". Anything without a
+ * good match falls back to `unableToCompleteOperation`, with the real wording
+ * carried in `errorStateDetails`.
+ */
+const MATTER_ERROR_STATE_BY_CODE: Record<number, number> = {
+  1: MATTER_ERROR_STATE.wheelsJammed, // Side wheel is stuck
+  2: MATTER_ERROR_STATE.brushJammed, // Side brush is stuck
+  3: MATTER_ERROR_STATE.unableToCompleteOperation, // Suction motor failed
+  4: MATTER_ERROR_STATE.brushJammed, // Brushroll stuck
+  5: MATTER_ERROR_STATE.wheelsJammed, // Side wheel is stuck (2)
+  6: MATTER_ERROR_STATE.stuck, // Bumper is stuck
+  7: MATTER_ERROR_STATE.navigationSensorObscured, // Cliff sensor is blocked
+  8: MATTER_ERROR_STATE.lowBattery, // Battery power is low
+  9: MATTER_ERROR_STATE.dustBinMissing, // No Dustbin
+  10: MATTER_ERROR_STATE.navigationSensorObscured, // Fall sensor is blocked
+  11: MATTER_ERROR_STATE.wheelsJammed, // Front wheel is stuck
+  13: MATTER_ERROR_STATE.unableToStartOrResume, // Switched off
+  14: MATTER_ERROR_STATE.unableToCompleteOperation, // Magnetic strip error
+  16: MATTER_ERROR_STATE.stuck, // Top bumper is stuck
+  18: MATTER_ERROR_STATE.wheelsJammed, // Wheel encoder error
+}
+
+/** A fault the vacuum is reporting. Absent when there is nothing wrong. */
+export interface VacuumFault {
+  code: number
+  /** `Extended_Error_Code`, when the vacuum gives one. Meaning not yet known. */
+  extendedCode?: number
+  /** Human wording, for logs and for Matter's `errorStateDetails`. */
+  message: string
+  matterErrorStateId: number
+}
+
+/** Reads a number the API may report as a number or a string. */
+function readNumber(raw: unknown): number | undefined {
+  if (typeof raw === 'number') {
+    return Number.isFinite(raw) ? raw : undefined
+  }
+  if (typeof raw === 'string' && raw.trim() !== '') {
+    const parsed = Number.parseInt(raw, 10)
+    return Number.isFinite(parsed) ? parsed : undefined
+  }
+  return undefined
+}
+
+/**
+ * Reads a flag the API may report as a boolean, a 0/1 number, or those as
+ * strings. Returns undefined when the vacuum has not reported the property at
+ * all, which is different from reporting false.
+ */
+export function readFlag(raw: unknown): boolean | undefined {
+  if (raw === undefined || raw === null || raw === '') {
+    return undefined
+  }
+  if (typeof raw === 'boolean') {
+    return raw
+  }
+  return raw === 1 || raw === '1' || String(raw).toLowerCase() === 'true'
+}
+
+/**
+ * The fault the vacuum is reporting, if any (#88).
+ *
+ * Code 0 (and no code at all) means no fault. Unknown codes are still reported —
+ * an unrecognised fault is better surfaced than swallowed — with the number in
+ * the message so it can be identified from a log.
+ */
+export function readVacuumFault(rawCode: unknown, rawExtendedCode?: unknown): VacuumFault | undefined {
+  const code = readNumber(rawCode)
+  if (code === undefined || code === 0) {
+    return undefined
+  }
+  const extendedCode = readNumber(rawExtendedCode)
+  const known = ERROR_MESSAGES[code as keyof typeof ERROR_MESSAGES]
+  const message = known ?? `Unknown error (code ${code}${extendedCode ? `, extended ${extendedCode}` : ''})`
+  return {
+    code,
+    ...(extendedCode === undefined || extendedCode === 0 ? {} : { extendedCode }),
+    message,
+    matterErrorStateId: MATTER_ERROR_STATE_BY_CODE[code] ?? MATTER_ERROR_STATE.unableToCompleteOperation,
+  }
+}
+
+/** Water tank state. Each flag is undefined when the vacuum does not report it. */
+export interface WaterTank {
+  installed?: boolean
+  empty?: boolean
+  /** Installed but out of water — the only combination worth warning about. */
+  needsRefill: boolean
+}
+
+export function readWaterTank(rawInstalled: unknown, rawEmpty: unknown): WaterTank {
+  const installed = readFlag(rawInstalled)
+  const empty = readFlag(rawEmpty)
+  // A missing tank is not a problem: this vacuum runs perfectly well without one
+  // when it is not mopping. Only an installed tank that has run dry is.
+  return { installed, empty, needsRefill: installed === true && empty === true }
+}
+
+/**
+ * The Matter `operationalError` for the current state (#88).
+ *
+ * ⚠️ **Setting this to anything but `noError` forces the whole device into the
+ * Error state.** matter.js does it for you in `OperationalStateServer`'s
+ * `#handleOperationalError`, so a value here is not a passive status — it is
+ * what Home shows instead of "Docked" or "Charging". That is why an empty water
+ * tank only counts while the vacuum is actually running: reporting it on a
+ * docked vacuum would leave every mop-less user permanently in Error.
+ *
+ * ⚠️ `errorStateLabel` is deliberately never set. The spec only permits it on
+ * manufacturer-specific IDs (0x80-0xBF), and matter.js rejects it on the
+ * standard IDs used here as a conformance error, rolling back the whole
+ * registration — the same trap as the operational state labels in #83.
+ * `errorStateDetails` is the free-text field, and carries the real wording.
+ */
+export function matterOperationalError(
+  fault: VacuumFault | undefined,
+  waterTank: WaterTank,
+  running: boolean,
+): { errorStateId: number, errorStateDetails?: string } {
+  if (fault) {
+    return { errorStateId: fault.matterErrorStateId, errorStateDetails: fault.message }
+  }
+  if (running && waterTank.needsRefill) {
+    return { errorStateId: MATTER_ERROR_STATE.waterTankEmpty, errorStateDetails: 'Water tank is empty' }
+  }
+  return { errorStateId: MATTER_ERROR_STATE.noError }
+}
+
 export interface DeviceDct {
   dsn: string
   key: string
@@ -434,6 +585,35 @@ class SharkIqVacuum {
       this.get_property_value(Properties.BATTERY_CAPACITY),
       this.get_property_value(Properties.CHARGING_STATUS),
     )
+  }
+
+  /** The fault the vacuum is reporting, or undefined when all is well (#88). */
+  fault(): VacuumFault | undefined {
+    return readVacuumFault(
+      this.get_property_value(Properties.ERROR_CODE),
+      this.get_property_value(Properties.EXTENDED_ERROR_CODE),
+    )
+  }
+
+  /** Water tank state (#88). */
+  water_tank(): WaterTank {
+    return readWaterTank(
+      this.get_property_value(Properties.WATER_TANK_INSTALLED),
+      this.get_property_value(Properties.WATER_TANK_EMPTY),
+    )
+  }
+
+  /**
+   * Whether the mop plate is attached (#88). Undefined when the vacuum does not
+   * report it, which is different from reporting that it is off.
+   */
+  mop_plate_attached(): boolean | undefined {
+    return readFlag(this.get_property_value(Properties.MOP_PLATE_ATTACHED))
+  }
+
+  /** Whether the vacuum is currently running a job. */
+  is_running(): boolean {
+    return this.operating_mode() === OperatingModes.START
   }
 
   // Update vacuum details such as the model and serial number. These come

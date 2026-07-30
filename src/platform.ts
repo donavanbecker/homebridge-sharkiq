@@ -154,6 +154,11 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
 
     const invertDockedStatus = this.config.invertDockedStatus || false
     const dockedUpdateInterval = this.config.dockedUpdateInterval || TIMEOUTS.DEFAULT_DOCKED_UPDATE_INTERVAL
+    // Off by default: each adds a tile to Home, so an existing setup must look
+    // exactly as it did until someone asks for them (#88).
+    const showErrorSensor = this.config.errorSensor || false
+    const showWaterTankSensor = this.config.waterTankSensor || false
+    const showMopPlateSensor = this.config.mopPlateSensor || false
     this.vacuumDevices.forEach((vacuumDevice) => {
       const uuid = this.api.hap.uuid.generate(vacuumDevice._dsn.toString())
       let accessory = unusedDeviceAccessories.find(accessory => accessory.UUID === uuid)
@@ -176,7 +181,7 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
         .setCharacteristic(this.Characteristic.SerialNumber, vacuumDevice._dsn)
 
       activeAccessories.push(accessory)
-      void new SharkIQAccessory(this, accessory, vacuumDevice, this.api.hap.uuid, this.log, invertDockedStatus, dockedUpdateInterval)
+      void new SharkIQAccessory(this, accessory, vacuumDevice, this.api.hap.uuid, this.log, invertDockedStatus, dockedUpdateInterval, showErrorSensor, showWaterTankSensor, showMopPlateSensor)
     })
 
     if (externalAccessory) {

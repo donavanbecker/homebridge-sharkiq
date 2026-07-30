@@ -6,7 +6,7 @@ import { TIMEOUTS } from './constants.js'
 import { createPromiseRejectionHandler } from './errorHandling.js'
 import { SharkIQPlatform } from './platform.js'
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
-import { areaIdsToRoomNames, buildServiceAreaCluster, isKnownCleanMode, MATTER_CLEAN_MODES, matterPowerSourceState, OperatingModes, Properties } from './sharkiq-js/sharkiq.js'
+import { areaIdsToRoomNames, buildServiceAreaCluster, isKnownCleanMode, MATTER_CLEAN_MODES, matterOperationalError, matterPowerSourceState, OperatingModes, Properties } from './sharkiq-js/sharkiq.js'
 
 /**
  * SharkIQMatterPlatform
@@ -350,7 +350,20 @@ export class SharkIQMatterPlatform extends SharkIQPlatform {
 
     const updateMatterState = async () => {
       try {
-        await vacuumDevice.update([Properties.DOCKED_STATUS, Properties.OPERATING_MODE, Properties.POWER_MODE, Properties.BATTERY_CAPACITY, Properties.CHARGING_STATUS])
+        await vacuumDevice.update([
+          Properties.DOCKED_STATUS,
+          Properties.OPERATING_MODE,
+          Properties.POWER_MODE,
+          Properties.BATTERY_CAPACITY,
+          Properties.CHARGING_STATUS,
+          // ⚠️ An attribute that is never fetched stays at its default forever,
+          // so anything pushed to Matter below has to be listed here too (#88).
+          Properties.ERROR_CODE,
+          Properties.EXTENDED_ERROR_CODE,
+          Properties.WATER_TANK_INSTALLED,
+          Properties.WATER_TANK_EMPTY,
+          Properties.MOP_PLATE_ATTACHED,
+        ])
 
         const mode = vacuumDevice.operating_mode()
         const dockedStatus = vacuumDevice.docked_status()
@@ -371,9 +384,20 @@ export class SharkIQMatterPlatform extends SharkIQPlatform {
 
         const runMode = isActive ? 1 : 0 // 1 = Cleaning, 0 = Idle
 
+        // Faults and an empty water tank, as Matter's own error states (#88).
+        const fault = vacuumDevice.fault()
+        const waterTank = vacuumDevice.water_tank()
+        const operationalError = matterOperationalError(fault, waterTank, mode === OperatingModes.START)
+
         if (typeof matterApi.updateAccessoryState === 'function') {
           await matterApi.updateAccessoryState(uuid, 'rvcRunMode', { currentMode: runMode })
+          // ⚠️ Order matters. matter.js forces the state to Error whenever an
+          // error is set, and clears the error whenever the state moves away
+          // from Error. Setting the state first and the error second lets a real
+          // fault take precedence over "Docked", and lets a cleared fault fall
+          // back to the true state.
           await matterApi.updateAccessoryState(uuid, 'rvcOperationalState', { operationalState })
+          await matterApi.updateAccessoryState(uuid, 'rvcOperationalState', { operationalError })
         }
 
         // Battery and suction level, so Home reflects what the vacuum reports
@@ -385,8 +409,23 @@ export class SharkIQMatterPlatform extends SharkIQPlatform {
           await matterApi.updateAccessoryState(uuid, 'rvcCleanMode', { currentMode: cleanMode })
         }
 
+        if (fault) {
+          this.log.warn(`${vacuumDevice._name}: ${fault.message}${fault.extendedCode ? ` (extended code ${fault.extendedCode})` : ''}`)
+        }
+
         this.log.debug(`[Matter] Vacuum ${vacuumDevice._dsn}: runMode=${runMode}, operationalState=${operationalState}, `
-          + `battery=${battery.percent ?? 'unknown'}%${battery.charging ? ' (charging)' : ''}, cleanMode=${cleanMode}`)
+          + `battery=${battery.percent ?? 'unknown'}%${battery.charging ? ' (charging)' : ''}, cleanMode=${cleanMode}, `
+          + `errorState=${operationalError.errorStateId}`)
+        this.log.debug(
+          '[Matter] Error code:',
+          fault?.code ?? 0,
+          '| Water tank installed:',
+          waterTank.installed ?? 'not reported',
+          'empty:',
+          waterTank.empty ?? 'not reported',
+          '| Mop plate attached:',
+          vacuumDevice.mop_plate_attached() ?? 'not reported',
+        )
       } catch (error) {
         this.log.debug('Failed to update Matter vacuum state:', error)
       }
