@@ -233,6 +233,88 @@ export function areaIdsToRoomNames(areaIds: number[], rooms: string[]): string[]
     .filter((name): name is string => typeof name === 'string')
 }
 
+/**
+ * Battery and charging state, normalised from what the vacuum reports (#88).
+ *
+ * The vacuum publishes `Battery_Capacity` as a plain percentage and
+ * `Charging_Status` as a flag. Neither reached HomeKit on either protocol
+ * before this.
+ */
+export interface VacuumBattery {
+  /** 0-100, or undefined when the vacuum has not reported one */
+  percent?: number
+  charging: boolean
+  /** Matter's batChargeLevel: 0 Ok, 1 Warning, 2 Critical */
+  chargeLevel: 0 | 1 | 2
+  low: boolean
+}
+
+/** Below this the battery is reported as low on HAP and Warning on Matter. */
+export const BATTERY_LOW_THRESHOLD = 20
+/** Below this Matter reports Critical. */
+export const BATTERY_CRITICAL_THRESHOLD = 10
+
+export function readVacuumBattery(rawPercent: unknown, rawCharging: unknown): VacuumBattery {
+  const parsed = typeof rawPercent === 'number' ? rawPercent : Number.parseInt(String(rawPercent ?? ''), 10)
+  const percent = Number.isFinite(parsed) ? Math.max(0, Math.min(100, Math.round(parsed))) : undefined
+  // Charging_Status is 1/0 on this API, but a boolean is cheap to tolerate.
+  const charging = rawCharging === true || rawCharging === 1 || String(rawCharging) === '1'
+
+  let chargeLevel: 0 | 1 | 2 = 0
+  if (percent !== undefined) {
+    if (percent < BATTERY_CRITICAL_THRESHOLD) {
+      chargeLevel = 2
+    } else if (percent < BATTERY_LOW_THRESHOLD) {
+      chargeLevel = 1
+    }
+  }
+
+  return { percent, charging, chargeLevel, low: percent !== undefined && percent < BATTERY_LOW_THRESHOLD }
+}
+
+/**
+ * The Matter PowerSource cluster state for a battery reading.
+ *
+ * ⚠️ `batPercentRemaining` is DOUBLE the percentage - 100% is 200, not 100.
+ * Homebridge's own note says so (`clusterTypes.ts:337`). Sending the plain
+ * percentage would report every battery at half its real charge.
+ */
+export function matterPowerSourceState(battery: VacuumBattery): Record<string, unknown> {
+  return {
+    status: 1, // Active
+    order: 0,
+    description: 'Battery',
+    batPresent: true,
+    batPercentRemaining: battery.percent === undefined ? null : battery.percent * 2,
+    batChargeLevel: battery.chargeLevel,
+    batReplacementNeeded: false,
+    batReplaceability: 0, // NotReplaceable
+    // 0 Unknown, 1 IsCharging, 2 IsAtFullCharge, 3 IsNotCharging
+    batChargeState: battery.charging ? 1 : (battery.percent === 100 ? 2 : 3),
+  }
+}
+
+/**
+ * The vacuum's suction levels, as Matter clean modes (#88).
+ *
+ * Mode numbers are the vacuum's own `PowerModes` values so the two cannot drift.
+ * The tags are the standard Matter ModeBase ones: `Max` (0x4000... see below) is
+ * not used here because RvcCleanMode's own tags start at 0x4000 for Vacuum, so
+ * only the common tags below 0x4000 are safe to reuse.
+ * 0x0007 = LowNoise, 0x0008 = LowEnergy, 0x0009 = Vacation, 0x000A = Min,
+ * 0x000B = Max, 0x000E = Auto.
+ */
+export const MATTER_CLEAN_MODES = [
+  { label: 'Eco', mode: 1, modeTags: [{ value: 0x0008 }] }, // PowerModes.ECO, LowEnergy
+  { label: 'Normal', mode: 0, modeTags: [{ value: 0x000E }] }, // PowerModes.NORMAL, Auto
+  { label: 'Max', mode: 2, modeTags: [{ value: 0x000B }] }, // PowerModes.MAX, Max
+] as const
+
+/** Whether a mode number a controller sent is one this vacuum actually has. */
+export function isKnownCleanMode(mode: number): boolean {
+  return MATTER_CLEAN_MODES.some(m => m.mode === mode)
+}
+
 export interface DeviceDct {
   dsn: string
   key: string
@@ -325,6 +407,14 @@ class SharkIqVacuum {
   // Get current power mode
   power_mode(): number {
     return this.get_property_value(Properties.POWER_MODE)
+  }
+
+  /** Battery percentage and charging state, normalised (#88). */
+  battery(): VacuumBattery {
+    return readVacuumBattery(
+      this.get_property_value(Properties.BATTERY_CAPACITY),
+      this.get_property_value(Properties.CHARGING_STATUS),
+    )
   }
 
   // Update vacuum details such as the model and serial number. These come

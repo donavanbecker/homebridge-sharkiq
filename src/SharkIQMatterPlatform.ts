@@ -6,7 +6,7 @@ import { TIMEOUTS } from './constants.js'
 import { createPromiseRejectionHandler } from './errorHandling.js'
 import { SharkIQPlatform } from './platform.js'
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
-import { areaIdsToRoomNames, buildServiceAreaCluster, OperatingModes, Properties } from './sharkiq-js/sharkiq.js'
+import { areaIdsToRoomNames, buildServiceAreaCluster, isKnownCleanMode, MATTER_CLEAN_MODES, matterPowerSourceState, OperatingModes, Properties } from './sharkiq-js/sharkiq.js'
 
 /**
  * SharkIQMatterPlatform
@@ -152,6 +152,14 @@ export class SharkIQMatterPlatform extends SharkIQPlatform {
               ],
               currentMode: 0,
             },
+            // Battery, so Home shows a charge level and warns when it is low (#88).
+            powerSource: matterPowerSourceState(vacuumDevice.battery()),
+            // Suction level. Previously only reachable on HAP, where it is a fan
+            // speed slider - Matter users had no way to change it at all (#88).
+            rvcCleanMode: {
+              supportedModes: [...MATTER_CLEAN_MODES],
+              currentMode: vacuumDevice.power_mode() ?? 0,
+            },
             // ServiceArea: room selection, from the vacuum's own map (#41). Only
             // declared when the vacuum reports a room list - advertising an empty
             // area list would give a controller a picker with nothing in it.
@@ -278,6 +286,18 @@ export class SharkIQMatterPlatform extends SharkIQPlatform {
           }
         },
       },
+      rvcCleanMode: {
+        changeToMode: async ({ newMode }: { newMode: number }) => {
+          if (!isKnownCleanMode(newMode)) {
+            this.log.warn(`Matter asked for clean mode ${newMode}, which this vacuum does not have - ignoring.`)
+            return
+          }
+          const label = MATTER_CLEAN_MODES.find(m => m.mode === newMode)?.label ?? String(newMode)
+          this.log.info(`Matter set the suction level to ${label}.`)
+          await vacuumDevice.set_property_value(Properties.POWER_MODE, newMode)
+            .catch(createPromiseRejectionHandler(this.log, 'Matter set clean mode'))
+        },
+      },
       serviceArea: {
         selectAreas: async ({ newAreas }: { newAreas: number[] }) => {
           const rooms = vacuumDevice.get_room_list?.() ?? []
@@ -330,7 +350,7 @@ export class SharkIQMatterPlatform extends SharkIQPlatform {
 
     const updateMatterState = async () => {
       try {
-        await vacuumDevice.update([Properties.DOCKED_STATUS, Properties.OPERATING_MODE])
+        await vacuumDevice.update([Properties.DOCKED_STATUS, Properties.OPERATING_MODE, Properties.POWER_MODE, Properties.BATTERY_CAPACITY, Properties.CHARGING_STATUS])
 
         const mode = vacuumDevice.operating_mode()
         const dockedStatus = vacuumDevice.docked_status()
@@ -356,7 +376,17 @@ export class SharkIQMatterPlatform extends SharkIQPlatform {
           await matterApi.updateAccessoryState(uuid, 'rvcOperationalState', { operationalState })
         }
 
-        this.log.debug(`[Matter] Vacuum ${vacuumDevice._dsn}: runMode=${runMode}, operationalState=${operationalState}`)
+        // Battery and suction level, so Home reflects what the vacuum reports
+        // rather than only what we last told it (#88).
+        const battery = vacuumDevice.battery()
+        await matterApi.updateAccessoryState(uuid, 'powerSource', matterPowerSourceState(battery))
+        const cleanMode = vacuumDevice.power_mode()
+        if (isKnownCleanMode(cleanMode)) {
+          await matterApi.updateAccessoryState(uuid, 'rvcCleanMode', { currentMode: cleanMode })
+        }
+
+        this.log.debug(`[Matter] Vacuum ${vacuumDevice._dsn}: runMode=${runMode}, operationalState=${operationalState}, `
+          + `battery=${battery.percent ?? 'unknown'}%${battery.charging ? ' (charging)' : ''}, cleanMode=${cleanMode}`)
       } catch (error) {
         this.log.debug('Failed to update Matter vacuum state:', error)
       }

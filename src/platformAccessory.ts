@@ -11,6 +11,7 @@ export class SharkIQAccessory {
   private service: Service
   private dockedStatusService: Service
   private vacuumPausedService: Service
+  private batteryService: Service
 
   constructor(
     private readonly platform: SharkIQPlatform,
@@ -62,6 +63,22 @@ export class SharkIQAccessory {
     this.vacuumPausedService.getCharacteristic(this.platform.Characteristic.On)
       .onSet(this.setPaused.bind(this))
       .onGet(this.getPaused.bind(this))
+
+    // Battery: percentage, charging state and a low-battery warning. The vacuum
+    // reports these and nothing surfaced them before (#88).
+    this.batteryService = this.accessory.getService('Vacuum Battery')
+      || this.accessory.addService(this.platform.Service.Battery, 'Vacuum Battery', 'Battery')
+    this.batteryService.setCharacteristic(this.platform.Characteristic.Name, `${device._name.toString()} Battery`)
+    this.batteryService.getCharacteristic(this.platform.Characteristic.BatteryLevel)
+      .onGet(() => this.device.battery().percent ?? 0)
+    this.batteryService.getCharacteristic(this.platform.Characteristic.ChargingState)
+      .onGet(() => this.device.battery().charging
+        ? this.platform.Characteristic.ChargingState.CHARGING
+        : this.platform.Characteristic.ChargingState.NOT_CHARGING)
+    this.batteryService.getCharacteristic(this.platform.Characteristic.StatusLowBattery)
+      .onGet(() => this.device.battery().low
+        ? this.platform.Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW
+        : this.platform.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL)
 
     this.updateStates()
 
@@ -125,7 +142,7 @@ export class SharkIQAccessory {
     this.log.debug('Triggering GET Vacuum States')
     let vacuumDocked = false
 
-    await this.device.update([Properties.DOCKED_STATUS, Properties.OPERATING_MODE, Properties.POWER_MODE])
+    await this.device.update([Properties.DOCKED_STATUS, Properties.OPERATING_MODE, Properties.POWER_MODE, Properties.BATTERY_CAPACITY, Properties.CHARGING_STATUS])
       .then((delay) => {
         this.dockedDelay = delay
       })
@@ -154,7 +171,24 @@ export class SharkIQAccessory {
     }
     this.dockedStatusService.updateCharacteristic(this.platform.Characteristic.ContactSensorState, vacuumDocked)
 
-    this.log.debug('Vacuum Docked:', vacuumDocked, 'Vacuum Active:', vacuumActive, 'Power Mode:', power_mode)
+    const battery = this.device.battery()
+    if (battery.percent !== undefined) {
+      this.batteryService.updateCharacteristic(this.platform.Characteristic.BatteryLevel, battery.percent)
+    }
+    this.batteryService.updateCharacteristic(
+      this.platform.Characteristic.ChargingState,
+      battery.charging
+        ? this.platform.Characteristic.ChargingState.CHARGING
+        : this.platform.Characteristic.ChargingState.NOT_CHARGING,
+    )
+    this.batteryService.updateCharacteristic(
+      this.platform.Characteristic.StatusLowBattery,
+      battery.low
+        ? this.platform.Characteristic.StatusLowBattery.BATTERY_LEVEL_LOW
+        : this.platform.Characteristic.StatusLowBattery.BATTERY_LEVEL_NORMAL,
+    )
+
+    this.log.debug('Vacuum Docked:', vacuumDocked, 'Vacuum Active:', vacuumActive, 'Power Mode:', power_mode, 'Battery:', battery.percent ?? 'unknown', battery.charging ? '(charging)' : '')
   }
 
   // Update paused and active state on switch
