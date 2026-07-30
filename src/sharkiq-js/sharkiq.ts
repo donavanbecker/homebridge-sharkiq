@@ -47,6 +47,37 @@ export function describeRoomList(raw: unknown): string {
   return `${label}: map "${identifier}" with ${rooms.length} room(s): ${rooms.join(', ')}`
 }
 
+/**
+ * The three generations of the "which areas to clean" property, oldest first.
+ *
+ * A vacuum can report all three (#41). The plugin writes
+ * {@link Properties.AREAS_TO_CLEAN}, which is V2, but that was chosen before V3
+ * existed, and a property *list* cannot tell us which one a given firmware acts
+ * on. Logging all three lets a reporter start a single-room clean from the
+ * SharkClean app and show us which one the app populates.
+ */
+export const AREA_FILTER_PROPERTIES = ['Areas_To_Clean', 'AreasToClean_V2', 'AreasToClean_V3'] as const
+
+/**
+ * Render one area-filter value for the debug log.
+ *
+ * The encoded form is a length-prefixed room list carrying control bytes, so it
+ * is shown as hex with a printable rendering beside it rather than dumped raw
+ * into the log.
+ */
+export function describeAreaFilter(name: string, raw: unknown): string {
+  if (raw === undefined) {
+    return `${name}: not reported`
+  }
+  if (raw === null || raw === '') {
+    return `${name}: empty`
+  }
+  const text = String(raw)
+  const hex = Buffer.from(text, 'latin1').toString('hex')
+  const printable = text.replace(/[^\x20-\x7E]/g, '.')
+  return `${name}: ${text.length} byte(s) hex=${hex} printable="${printable}"`
+}
+
 export interface DeviceDct {
   dsn: string
   key: string
@@ -378,6 +409,10 @@ class SharkIqVacuum {
       // else, because the list of names was never printed.
       this.log.debug(`New-API properties: ${names.sort().join(', ')}`)
       this.log.debug(this.describeRoomList())
+      // Values, not just names. Which of the three area-filter generations the
+      // vacuum actually acts on can only be found by watching which one changes
+      // when a single-room clean is started from the SharkClean app (#41).
+      this.log.debug(`Area filters: ${AREA_FILTER_PROPERTIES.map(name => describeAreaFilter(name, values[name])).join(' | ')}`)
       return true
     } catch (error) {
       this.log.debug(`New SharkNinja API state read failed (${error}), falling back to the Ayla API.`)
