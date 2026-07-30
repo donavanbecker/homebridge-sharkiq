@@ -6,7 +6,7 @@ import { TIMEOUTS } from './constants.js'
 import { createPromiseRejectionHandler } from './errorHandling.js'
 import { SharkIQPlatform } from './platform.js'
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
-import { areaIdsToRoomNames, buildSupportedAreas, OperatingModes, Properties } from './sharkiq-js/sharkiq.js'
+import { areaIdsToRoomNames, buildServiceAreaCluster, OperatingModes, Properties } from './sharkiq-js/sharkiq.js'
 
 /**
  * SharkIQMatterPlatform
@@ -156,7 +156,7 @@ export class SharkIQMatterPlatform extends SharkIQPlatform {
             // declared when the vacuum reports a room list - advertising an empty
             // area list would give a controller a picker with nothing in it.
             ...(vacuumDevice.get_room_list?.()?.length
-              ? { serviceArea: { supportedAreas: buildSupportedAreas(vacuumDevice.get_room_list()), selectedAreas: [] } }
+              ? { serviceArea: buildServiceAreaCluster(vacuumDevice.get_room_list()) }
               : {}),
             rvcOperationalState: {
               // operationalStateLabel is only permitted on manufacturer-specific

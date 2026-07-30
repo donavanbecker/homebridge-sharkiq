@@ -169,6 +169,39 @@ export function buildSupportedAreas(rooms: string[]): MatterSupportedArea[] {
   }))
 }
 
+/** The full ServiceArea cluster state, as matter.js requires it. */
+export interface MatterServiceAreaCluster {
+  supportedAreas: MatterSupportedArea[]
+  /**
+   * ⚠️ MUST be present, even when empty. matter.js's `ServiceAreaServer` calls
+   * `maps.length` on it unguarded during initialize, so leaving it out throws
+   * "Cannot read properties of undefined (reading 'length')", the behaviour
+   * fails to initialise, and the WHOLE endpoint is rolled back - the vacuum
+   * shows as No Response in Home. Shipped exactly that in 1.6.2-beta.4 (#41).
+   */
+  supportedMaps: never[]
+  selectedAreas: number[]
+}
+
+/**
+ * Build the ServiceArea cluster state for a vacuum's rooms.
+ *
+ * One function, so what the tests check is the same object the platform hands to
+ * Matter. Testing only the pieces is what let the missing `supportedMaps`
+ * through: `buildSupportedAreas` was well covered, and the bug was in the object
+ * around it.
+ *
+ * An empty `supportedMaps` obliges every area to carry `mapId: null`, which
+ * matter.js enforces too, so the two must change together.
+ */
+export function buildServiceAreaCluster(rooms: string[]): MatterServiceAreaCluster {
+  return {
+    supportedAreas: buildSupportedAreas(rooms),
+    supportedMaps: [],
+    selectedAreas: [],
+  }
+}
+
 /**
  * Map the area ids a controller selected back to the room names the vacuum wants.
  *

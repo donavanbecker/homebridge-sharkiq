@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { Properties } from './properties.js'
-import { AREA_FILTER_PROPERTIES, areaIdsToRoomNames, buildSupportedAreas, chooseAreaFilterProperty, describeAreaFilter, describeRoomList, encodeRoomListV3 } from './sharkiq.js'
+import { AREA_FILTER_PROPERTIES, areaIdsToRoomNames, buildServiceAreaCluster, buildSupportedAreas, chooseAreaFilterProperty, describeAreaFilter, describeRoomList, encodeRoomListV3 } from './sharkiq.js'
 
 /**
  * Room-specific cleaning (#41) depends on the vacuum publishing
@@ -212,5 +212,70 @@ describe('areaIdsToRoomNames', () => {
 
   it('handles an empty selection', () => {
     expect(areaIdsToRoomNames([], HIS_ROOMS)).toEqual([])
+  })
+})
+
+/**
+ * The cluster object handed to Matter (#41).
+ *
+ * ⚠️ These exist because `1.6.2-beta.4` shipped a ServiceArea cluster with no
+ * `supportedMaps`. matter.js calls `maps.length` on it unguarded, so the
+ * behaviour threw "Cannot read properties of undefined (reading 'length')", the
+ * whole endpoint rolled back, and the vacuum went to No Response in Home.
+ *
+ * `buildSupportedAreas` was well covered at the time. The bug was in the object
+ * around it, which nothing tested — so these assert the shape actually passed to
+ * Matter, and restate matter.js's own validation rules so they fail here rather
+ * than on a user's bridge.
+ */
+describe('buildServiceAreaCluster', () => {
+  it('always includes supportedMaps, which matter.js reads unguarded', () => {
+    const cluster = buildServiceAreaCluster(HIS_ROOMS)
+    expect(cluster.supportedMaps).toBeDefined()
+    expect(Array.isArray(cluster.supportedMaps)).toBe(true)
+  })
+
+  it('includes supportedMaps even with no rooms', () => {
+    expect(buildServiceAreaCluster([]).supportedMaps).toEqual([])
+  })
+
+  it('declares every attribute the cluster needs, none undefined', () => {
+    const cluster = buildServiceAreaCluster(HIS_ROOMS)
+    for (const key of ['supportedAreas', 'supportedMaps', 'selectedAreas'] as const) {
+      expect(cluster[key], key).toBeDefined()
+    }
+  })
+
+  it('starts with nothing selected', () => {
+    expect(buildServiceAreaCluster(HIS_ROOMS).selectedAreas).toEqual([])
+  })
+
+  // matter.js: "Areas must not have a null mapId when supportedMaps is defined",
+  // and conversely with no maps every mapId must be null and all the same.
+  it('leaves every mapId null, as an empty supportedMaps requires', () => {
+    const cluster = buildServiceAreaCluster(HIS_ROOMS)
+    expect(cluster.supportedMaps).toHaveLength(0)
+    expect(cluster.supportedAreas.every(a => a.mapId === null)).toBe(true)
+    expect(new Set(cluster.supportedAreas.map(a => a.mapId)).size).toBe(1)
+  })
+
+  // matter.js: "AreaID <n> is not unique"
+  it('gives every area a unique id', () => {
+    const ids = buildServiceAreaCluster(HIS_ROOMS).supportedAreas.map(a => a.areaId)
+    expect(new Set(ids).size).toBe(ids.length)
+  })
+
+  // matter.js: "Areas must have a unique AreaInfo field"
+  it('gives every area a distinct areaInfo', () => {
+    const infos = buildServiceAreaCluster(HIS_ROOMS).supportedAreas.map(a => JSON.stringify(a.areaInfo))
+    expect(new Set(infos).size).toBe(infos.length)
+  })
+
+  // matter.js: "Area <n> has no location info"
+  it('gives every area a usable location name', () => {
+    for (const area of buildServiceAreaCluster(HIS_ROOMS).supportedAreas) {
+      expect(area.areaInfo.locationInfo).not.toBeNull()
+      expect(area.areaInfo.locationInfo.locationName).not.toBe('')
+    }
   })
 })
