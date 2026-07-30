@@ -10,6 +10,7 @@ import { SharkIQAccessory } from './platformAccessory.js'
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
 import { get_ayla_api } from './sharkiq-js/ayla_api.js'
 import { global_vars } from './sharkiq-js/const.js'
+import { ROOM_CLEAN_PRESETS } from './sharkiq-js/sharkiq.js'
 import { SkegoxApi } from './sharkiq-js/skegox_api.js'
 
 // SharkIQPlatform Main Class
@@ -100,6 +101,13 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
       await ayla_api.sign_in()
       const devices = await ayla_api.get_devices()
       await this.enableSkegox(devices, storagePath, europe)
+      // Room cleans default to the app's plain "Clean". Matrix Clean is the
+      // app's second button for a room - two passes, different mode key (#41).
+      const roomCleanPreset = this.config.matrixClean ? ROOM_CLEAN_PRESETS.matrix : ROOM_CLEAN_PRESETS.standard
+      devices.forEach((device) => {
+        device.roomCleanOptions = { ...roomCleanPreset }
+      })
+      this.log.debug(`Room cleans will use ${this.config.matrixClean ? 'Matrix Clean' : 'a standard clean'}.`)
       return devices
     } catch (error) {
       return Promise.reject(error)

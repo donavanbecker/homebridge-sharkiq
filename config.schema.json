@@ -58,6 +58,12 @@
         "description": "Allow the plugin to use Homebridge Matter support when available. Set to false to always use HAP accessories.",
         "type": "boolean",
         "default": true
+      },
+      "matrixClean": {
+        "title": "Use Matrix Clean for room cleans",
+        "type": "boolean",
+        "default": false,
+        "description": "When cleaning specific rooms from HomeKit, use the SharkClean app's \"Matrix Clean\" (a two-pass cross-hatch) instead of a plain single-pass clean. Only affects room cleans, not whole-house ones."
       }
     }
   },
@@ -117,7 +123,8 @@
           "helpvalue": "<h5>Homebridge Matter Support</h5><em class='primary-text'>These options require Homebridge v2.0 or later with Matter enabled. If Matter is unavailable the plugin will automatically fall back to standard HomeKit (HAP) accessories.</em>"
         },
         "preferMatter",
-        "enableMatter"
+        "enableMatter",
+        "matrixClean"
       ]
     }
   ]

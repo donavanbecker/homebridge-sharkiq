@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { Properties } from './properties.js'
-import { AREA_FILTER_PROPERTIES, areaIdsToRoomNames, buildServiceAreaCluster, buildSupportedAreas, chooseAreaFilterProperty, describeAreaFilter, describeRoomList, encodeRoomListV3 } from './sharkiq.js'
+import { AREA_FILTER_PROPERTIES, areaIdsToRoomNames, buildServiceAreaCluster, buildSupportedAreas, chooseAreaFilterProperty, describeAreaFilter, describeRoomList, encodeRoomListV3, ROOM_CLEAN_DEFAULTS, ROOM_CLEAN_PRESETS } from './sharkiq.js'
 
 /**
  * Room-specific cleaning (#41) depends on the vacuum publishing
@@ -89,26 +89,24 @@ describe('describeAreaFilter', () => {
  * RV2800AF-UK sent exactly the string asserted below.
  */
 describe('encodeRoomListV3', () => {
-  const OBSERVED = '{"areas_to_clean":{"UltraClean":["Kitchen"]},"clean_count":2,"floor_id":"6ABE3ECC","cleantype":"dry"}'
+  // Both payloads are pinned in the presets block below; this block covers the
+  // encoder's own behaviour with whatever preset it is given.
 
-  it('reproduces the observed payload exactly, key order included', () => {
-    expect(encodeRoomListV3(['Kitchen'], '6ABE3ECC')).toBe(OBSERVED)
-  })
-
-  it('is 101 bytes, as the vacuum reported', () => {
-    expect(encodeRoomListV3(['Kitchen'], '6ABE3ECC').length).toBe(101)
+  it('uses the key order the app sends', () => {
+    expect(Object.keys(JSON.parse(encodeRoomListV3(['Kitchen'], '6ABE3ECC'))))
+      .toEqual(['areas_to_clean', 'clean_count', 'floor_id', 'cleantype'])
   })
 
   it('carries several rooms in one request', () => {
     const parsed = JSON.parse(encodeRoomListV3(['Kitchen', 'Hallway'], '6ABE3ECC'))
-    expect(parsed.areas_to_clean.UltraClean).toEqual(['Kitchen', 'Hallway'])
+    expect(parsed.areas_to_clean.UserRoom).toEqual(['Kitchen', 'Hallway'])
   })
 
   it('keeps room names verbatim, including spaces', () => {
     // "Dining Room" and "Downstairs Toilet" are real names off his map - escaping
     // or slugifying them would not match what the app sends
     const parsed = JSON.parse(encodeRoomListV3(['Dining Room', 'Downstairs Toilet'], '6ABE3ECC'))
-    expect(parsed.areas_to_clean.UltraClean).toEqual(['Dining Room', 'Downstairs Toilet'])
+    expect(parsed.areas_to_clean.UserRoom).toEqual(['Dining Room', 'Downstairs Toilet'])
   })
 
   it('takes the floor id from the caller, which is the room list map identifier', () => {
@@ -277,5 +275,40 @@ describe('buildServiceAreaCluster', () => {
       expect(area.areaInfo.locationInfo).not.toBeNull()
       expect(area.areaInfo.locationInfo.locationName).not.toBe('')
     }
+  })
+})
+
+/**
+ * The two room-clean presets (#41).
+ *
+ * Both payloads were captured from the same vacuum: selecting a room in the
+ * SharkClean app offers "Clean" and "Matrix Clean", and they differ in more than
+ * a label. `UltraClean` was the first one seen and was briefly the default,
+ * which quietly turned every HomeKit room clean into a two-pass Matrix Clean.
+ */
+describe('room clean presets', () => {
+  const STANDARD = '{"areas_to_clean":{"UserRoom":["Kitchen"]},"clean_count":1,"floor_id":"6ABE3ECC","cleantype":"dry"}'
+  const MATRIX = '{"areas_to_clean":{"UltraClean":["Kitchen"]},"clean_count":2,"floor_id":"6ABE3ECC","cleantype":"dry"}'
+
+  it('defaults to a plain clean, not Matrix Clean', () => {
+    expect(ROOM_CLEAN_DEFAULTS).toEqual(ROOM_CLEAN_PRESETS.standard)
+    expect(ROOM_CLEAN_DEFAULTS.mode).toBe('UserRoom')
+    expect(ROOM_CLEAN_DEFAULTS.cleanCount).toBe(1)
+  })
+
+  it('reproduces the app\'s plain "Clean" payload byte for byte', () => {
+    expect(encodeRoomListV3(['Kitchen'], '6ABE3ECC')).toBe(STANDARD)
+    expect(encodeRoomListV3(['Kitchen'], '6ABE3ECC').length).toBe(99)
+  })
+
+  it('reproduces the app\'s "Matrix Clean" payload byte for byte', () => {
+    expect(encodeRoomListV3(['Kitchen'], '6ABE3ECC', ROOM_CLEAN_PRESETS.matrix)).toBe(MATRIX)
+    expect(encodeRoomListV3(['Kitchen'], '6ABE3ECC', ROOM_CLEAN_PRESETS.matrix).length).toBe(101)
+  })
+
+  it('keeps the two presets genuinely different', () => {
+    // if these ever converge, one of the app's two buttons is not being honoured
+    expect(ROOM_CLEAN_PRESETS.standard.mode).not.toBe(ROOM_CLEAN_PRESETS.matrix.mode)
+    expect(ROOM_CLEAN_PRESETS.standard.cleanCount).not.toBe(ROOM_CLEAN_PRESETS.matrix.cleanCount)
   })
 })

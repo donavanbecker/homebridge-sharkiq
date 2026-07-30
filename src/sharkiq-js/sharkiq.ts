@@ -97,11 +97,27 @@ export interface RoomCleanOptions {
   cleanType?: string
 }
 
-export const ROOM_CLEAN_DEFAULTS: Required<RoomCleanOptions> = {
-  mode: 'UltraClean',
-  cleanCount: 2,
-  cleanType: 'dry',
-}
+/**
+ * The two room-clean presets the SharkClean app offers, captured from a real
+ * vacuum (#41). Selecting a room in the app gives "Clean" and "Matrix Clean",
+ * and they differ in the mode key AND the pass count:
+ *
+ * ```
+ * Clean         {"areas_to_clean":{"UserRoom":["Kitchen"]},"clean_count":1,...}
+ * Matrix Clean  {"areas_to_clean":{"UltraClean":["Kitchen"]},"clean_count":2,...}
+ * ```
+ *
+ * ⚠️ `UltraClean` was the first value seen, and was briefly the default — which
+ * silently made every HomeKit room clean a two-pass Matrix Clean. A plain clean
+ * is `UserRoom` with one pass.
+ */
+export const ROOM_CLEAN_PRESETS = {
+  standard: { mode: 'UserRoom', cleanCount: 1, cleanType: 'dry' },
+  matrix: { mode: 'UltraClean', cleanCount: 2, cleanType: 'dry' },
+} as const satisfies Record<string, Required<RoomCleanOptions>>
+
+/** A plain clean, matching the app's "Clean" button rather than "Matrix Clean". */
+export const ROOM_CLEAN_DEFAULTS: Required<RoomCleanOptions> = ROOM_CLEAN_PRESETS.standard
 
 /**
  * Build the V3 area filter: plain JSON, unlike V2's length-prefixed binary blob.
