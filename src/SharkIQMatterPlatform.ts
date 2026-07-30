@@ -9,6 +9,15 @@ import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
 import { areaIdsToRoomNames, buildServiceAreaCluster, isKnownCleanMode, MATTER_CLEAN_MODES, matterOperationalError, matterPowerSourceState, OperatingModes, Properties } from './sharkiq-js/sharkiq.js'
 
 /**
+ * How long to wait after a command before re-reading the vacuum (#88).
+ *
+ * Long enough for the cloud to have taken the command — measured at about a
+ * second on a real vacuum — and short enough that Home is not left showing the
+ * old state. The periodic poll still runs regardless.
+ */
+const COMMAND_SETTLE_DELAY = 3000
+
+/**
  * SharkIQMatterPlatform
  *
  * Extends the base HAP platform to add Homebridge v2.0 Matter support.
@@ -26,6 +35,15 @@ import { areaIdsToRoomNames, buildServiceAreaCluster, isKnownCleanMode, MATTER_C
 export class SharkIQMatterPlatform extends SharkIQPlatform {
   // Track restored Matter cached accessories
   public readonly matterAccessories: Map<string, any> = new Map()
+
+  /**
+   * A function per vacuum that re-reads the cloud and pushes the result into
+   * Matter. Registered by the polling loop, and called by the command handlers
+   * so a command is reflected in Home straight away instead of waiting for the
+   * next poll — up to a 30 second wait, which reads as an unresponsive
+   * accessory even though the vacuum obeyed within a second (#88).
+   */
+  private readonly matterRefreshers: Map<string, () => Promise<void>> = new Map()
 
   constructor(
     log: Logger,
@@ -254,7 +272,11 @@ export class SharkIQMatterPlatform extends SharkIQPlatform {
    * `resume` maps to a fresh start when the vacuum is docked or idle, and to a
    * plain resume-in-place when it is already paused mid-clean.
    */
-  private _buildMatterHandlers(_matterApi: any, _uuid: string, vacuumDevice: SharkIqVacuum): Record<string, unknown> {
+  private _buildMatterHandlers(_matterApi: any, uuid: string, vacuumDevice: SharkIqVacuum): Record<string, unknown> {
+    // Anything that changes the vacuum calls this, so Home is told promptly
+    // rather than up to a poll interval later (#88).
+    const commandSent = () => this._refreshMatterStateAfterCommand(uuid)
+
     // Rooms the controller has selected, as area ids. Held here rather than read
     // back from the cluster so a clean uses whatever was chosen most recently,
     // and cleared once used so the next plain "start" is a whole-house clean
@@ -271,9 +293,11 @@ export class SharkIQMatterPlatform extends SharkIQPlatform {
       // becoming an empty area filter - that is what stopped the vacuum leaving
       // the dock in #68.
       return vacuumDevice.clean_rooms(rooms)
+        .then(commandSent)
         .catch(createPromiseRejectionHandler(this.log, 'Matter start cleaning'))
     }
     const returnToDock = () => vacuumDevice.cancel_clean()
+      .then(commandSent)
       .catch(createPromiseRejectionHandler(this.log, 'Matter return to dock'))
 
     return {
@@ -295,6 +319,7 @@ export class SharkIQMatterPlatform extends SharkIQPlatform {
           const label = MATTER_CLEAN_MODES.find(m => m.mode === newMode)?.label ?? String(newMode)
           this.log.info(`Matter set the suction level to ${label}.`)
           await vacuumDevice.set_property_value(Properties.POWER_MODE, newMode)
+            .then(commandSent)
             .catch(createPromiseRejectionHandler(this.log, 'Matter set clean mode'))
         },
       },
@@ -323,6 +348,7 @@ export class SharkIQMatterPlatform extends SharkIQPlatform {
           // Resume in place if a clean is paused, otherwise start a fresh clean
           if (vacuumDevice.operating_mode() === OperatingModes.PAUSE) {
             await vacuumDevice.set_operating_mode(OperatingModes.START)
+              .then(commandSent)
               .catch(createPromiseRejectionHandler(this.log, 'Matter resume cleaning'))
           } else {
             await startCleaning()
@@ -330,6 +356,7 @@ export class SharkIQMatterPlatform extends SharkIQPlatform {
         },
         pause: async () => {
           await vacuumDevice.set_operating_mode(OperatingModes.PAUSE)
+            .then(commandSent)
             .catch(createPromiseRejectionHandler(this.log, 'Matter pause cleaning'))
         },
         goHome: async () => {
@@ -431,8 +458,32 @@ export class SharkIQMatterPlatform extends SharkIQPlatform {
       }
     }
 
+    // Let the command handlers trigger this too, so Home hears about a command
+    // as soon as the vacuum has acted on it rather than on the next poll (#88).
+    this.matterRefreshers.set(uuid, updateMatterState)
+
     // Initial fetch, then periodic
     void updateMatterState()
     setInterval(() => void updateMatterState(), dockedUpdateInterval)
+  }
+
+  /**
+   * Re-read the vacuum and push the result into Matter, shortly after a command.
+   *
+   * ⚠️ The delay is deliberate and must not be removed. The cloud does not
+   * report the new state instantly — on a real vacuum the command landed at
+   * 9:17:53 and the vacuum only reported it back at 9:17:54 — so refreshing
+   * immediately would re-publish the OLD state and undo the point of doing this.
+   */
+  private _refreshMatterStateAfterCommand(uuid: string): void {
+    const refresh = this.matterRefreshers.get(uuid)
+    if (!refresh) {
+      return
+    }
+    setTimeout(() => {
+      void refresh().catch(() => {
+        // The periodic poll is the backstop, so a failed nudge is not worth a log line.
+      })
+    }, COMMAND_SETTLE_DELAY)
   }
 }
