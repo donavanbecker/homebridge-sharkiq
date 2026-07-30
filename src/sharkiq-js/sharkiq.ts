@@ -21,6 +21,32 @@ function _clean_property_name(raw_property_name: string): string {
 
 const ERROR_DELAY = 10000
 const TIMEOUT_DELAY = 30000
+/**
+ * Describe whether a vacuum reports a room list, for the debug log.
+ *
+ * Room-specific cleaning (#41) depends entirely on the vacuum publishing
+ * `Robot_Room_List`, and that varies by model and by which API the vacuum is
+ * live on. This states it directly rather than leaving a reporter to infer it.
+ *
+ * ⚠️ It exists because the plugin used to log only a property *count* ("Read 77
+ * properties"). Asked to look for a room list, a reporter on #41 could not have
+ * found one either way — an absent list and an unlogged one looked identical,
+ * and a whole round trip was spent finding that out.
+ *
+ * The raw value is `mapIdentifier:room1:room2:...`.
+ */
+export function describeRoomList(raw: unknown): string {
+  const label = `Room list (${Properties.ROBOT_ROOM_LIST})`
+  if (typeof raw !== 'string' || raw === '') {
+    return `${label}: not reported by this vacuum, so room-specific cleaning is not available on it.`
+  }
+  const [identifier, ...rooms] = raw.split(':')
+  if (rooms.length === 0) {
+    return `${label}: map "${identifier}" reported, but no rooms in it.`
+  }
+  return `${label}: map "${identifier}" with ${rooms.length} room(s): ${rooms.join(', ')}`
+}
+
 export interface DeviceDct {
   dsn: string
   key: string
@@ -344,7 +370,14 @@ class SharkIqVacuum {
     try {
       const values = await this.skegox.getPropertyValues(this._dsn)
       this.property_values = { ...this.property_values, ...values }
-      this.log.debug(`Read ${Object.keys(values).length} properties via the new SharkNinja API.`)
+      const names = Object.keys(values)
+      this.log.debug(`Read ${names.length} properties via the new SharkNinja API.`)
+      // The names, not just the count. Asking a reporter to look for a property
+      // in a log that only ever printed a number wasted a round trip on #41 -
+      // "I can't see any mention of a room list" could not have been anything
+      // else, because the list of names was never printed.
+      this.log.debug(`New-API properties: ${names.sort().join(', ')}`)
+      this.log.debug(this.describeRoomList())
       return true
     } catch (error) {
       this.log.debug(`New SharkNinja API state read failed (${error}), falling back to the Ayla API.`)
@@ -435,6 +468,19 @@ class SharkIqVacuum {
     const latin1Buffer = transcode(Buffer.from(header + rooms_enc + footer), 'utf8', 'latin1')
     const encoded = Buffer.from(latin1Buffer).toString('base64')
     return encoded
+  }
+
+  /**
+   * A plain-English line about whether this vacuum reports a room list, for the
+   * debug log.
+   *
+   * Room-specific cleaning (#41) depends entirely on the vacuum publishing
+   * `Robot_Room_List`, and that varies by model and by which API the vacuum is
+   * live on. This says so directly rather than leaving a reporter to infer it
+   * from a property dump.
+   */
+  describeRoomList(): string {
+    return describeRoomList(this.property_values?.[Properties.ROBOT_ROOM_LIST])
   }
 
   // Get object of the device room list for starting a clean
