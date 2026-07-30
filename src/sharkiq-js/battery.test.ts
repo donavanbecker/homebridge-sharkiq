@@ -1,3 +1,5 @@
+import { ModeBase } from '@matter/types/clusters/mode-base'
+import { RvcCleanMode } from '@matter/types/clusters/rvc-clean-mode'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -6,6 +8,7 @@ import {
   isKnownCleanMode,
   MATTER_CLEAN_MODES,
   matterPowerSourceState,
+  MODE_TAG,
   readVacuumBattery,
 } from './sharkiq.js'
 
@@ -99,6 +102,29 @@ describe('matter clean modes', () => {
   it('gives every mode a unique number and label', () => {
     expect(new Set(MATTER_CLEAN_MODES.map(m => m.mode)).size).toBe(MATTER_CLEAN_MODES.length)
     expect(new Set(MATTER_CLEAN_MODES.map(m => m.label)).size).toBe(MATTER_CLEAN_MODES.length)
+  })
+
+  // Every tag number in the source is checked against matter's own enum, because
+  // `@matter` is not a runtime dependency and so cannot be imported there. A
+  // hand-written table of these drifted from the spec once already (#88).
+  it('uses the real matter tag numbers, not hand-written ones', () => {
+    expect(MODE_TAG.auto).toBe(ModeBase.ModeTag.Auto)
+    expect(MODE_TAG.lowEnergy).toBe(ModeBase.ModeTag.LowEnergy)
+    expect(MODE_TAG.max).toBe(ModeBase.ModeTag.Max)
+    expect(MODE_TAG.vacuum).toBe(RvcCleanMode.ModeTag.Vacuum)
+  })
+
+  /**
+   * ⚠️ This is matter.js's own assertion, restated. Without a Vacuum or Mop tag
+   * it throws, `rvcCleanMode` fails to initialise, and the whole endpoint rolls
+   * back — the vacuum showed as No Response in Home (#88).
+   * `@matter/node/src/behaviors/rvc-clean-mode/RvcCleanModeServer.ts`
+   */
+  it('carries the Vacuum tag matter demands, or the endpoint will not start', () => {
+    const hasVacuumOrMop = MATTER_CLEAN_MODES.some(({ modeTags }) => modeTags.some(
+      ({ value }) => value === RvcCleanMode.ModeTag.Vacuum || value === RvcCleanMode.ModeTag.Mop,
+    ))
+    expect(hasVacuumOrMop).toBe(true)
   })
 
   it('gives every mode a tag, which matter requires', () => {

@@ -295,19 +295,38 @@ export function matterPowerSourceState(battery: VacuumBattery): Record<string, u
 }
 
 /**
+ * Matter mode tag numbers used by the clean modes below.
+ *
+ * ⚠️ These are spec values, not guesses. `@matter` is not a runtime dependency
+ * of this plugin, so they cannot be imported here — instead every one of them is
+ * asserted against `@matter/types`' own enums in `battery.test.ts`, which fails
+ * if a number here drifts from the spec.
+ */
+export const MODE_TAG = {
+  auto: 0, // ModeBase.ModeTag.Auto
+  lowEnergy: 4, // ModeBase.ModeTag.LowEnergy
+  max: 7, // ModeBase.ModeTag.Max
+  vacuum: 16385, // RvcCleanMode.ModeTag.Vacuum
+} as const
+
+/**
  * The vacuum's suction levels, as Matter clean modes (#88).
  *
  * Mode numbers are the vacuum's own `PowerModes` values so the two cannot drift.
- * The tags are the standard Matter ModeBase ones: `Max` (0x4000... see below) is
- * not used here because RvcCleanMode's own tags start at 0x4000 for Vacuum, so
- * only the common tags below 0x4000 are safe to reuse.
- * 0x0007 = LowNoise, 0x0008 = LowEnergy, 0x0009 = Vacation, 0x000A = Min,
- * 0x000B = Max, 0x000E = Auto.
+ *
+ * ⚠️ **At least one mode must carry the `vacuum` tag** (or `mop`). Without it
+ * matter.js throws "Provided supportedModes need to include at least Vacuum or
+ * Mop mode tag", the behaviour fails to initialise, and the *whole endpoint*
+ * rolls back — the vacuum shows as No Response in Home. Every mode carries it
+ * here, and the tests restate the rule.
+ *
+ * `Normal` deliberately carries no second tag: it is a fixed suction level, and
+ * `auto` in the spec means the device chooses for itself, which it does not.
  */
 export const MATTER_CLEAN_MODES = [
-  { label: 'Eco', mode: 1, modeTags: [{ value: 0x0008 }] }, // PowerModes.ECO, LowEnergy
-  { label: 'Normal', mode: 0, modeTags: [{ value: 0x000E }] }, // PowerModes.NORMAL, Auto
-  { label: 'Max', mode: 2, modeTags: [{ value: 0x000B }] }, // PowerModes.MAX, Max
+  { label: 'Eco', mode: 1, modeTags: [{ value: MODE_TAG.vacuum }, { value: MODE_TAG.lowEnergy }] }, // PowerModes.ECO
+  { label: 'Normal', mode: 0, modeTags: [{ value: MODE_TAG.vacuum }] }, // PowerModes.NORMAL
+  { label: 'Max', mode: 2, modeTags: [{ value: MODE_TAG.vacuum }, { value: MODE_TAG.max }] }, // PowerModes.MAX
 ] as const
 
 /** Whether a mode number a controller sent is one this vacuum actually has. */

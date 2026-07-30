@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file. This projec
 ### Changed
 
 - feat: report battery level and charging state, and expose the eco, normal and max suction levels over matter (#88)
+- fix(matter): tag the suction levels as vacuum modes, so the accessory registers instead of showing as no response (#88)
 
 ## v1.6.2 (2026-07-30)
 
