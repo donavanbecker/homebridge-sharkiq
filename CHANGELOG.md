@@ -13,6 +13,12 @@ All notable changes to this project will be documented in this file. This projec
 - chore: count a repeated commit subject once when syncing the changelog
 - chore(github): check the changelog against the commits in ci
 - chore(deps): dependency updates
+- fix: explain that a failed code exchange usually means the login code was already used or has expired, instead of reporting a bare http error (#84)
+- chore: log which properties the new api returns, and whether the vacuum reports a room list (#41)
+- chore: log the value of all three area filter properties, to find which one the vacuum acts on (#41)
+- feat: clean individual rooms, selectable from the matter service area, using the newer json area filter the vacuum expects (#41)
+- fix(matter): declare supportedMaps on the service area cluster, so a vacuum with rooms registers instead of showing as no response (#41)
+- fix: use the app's plain room clean by default instead of matrix clean, with a config option for matrix clean (#41)
 
 ## v1.6.1 (2026-07-28)
 
