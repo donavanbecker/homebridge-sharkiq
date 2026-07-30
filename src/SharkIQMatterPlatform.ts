@@ -6,7 +6,7 @@ import { TIMEOUTS } from './constants.js'
 import { createPromiseRejectionHandler } from './errorHandling.js'
 import { SharkIQPlatform } from './platform.js'
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
-import { OperatingModes, Properties } from './sharkiq-js/sharkiq.js'
+import { areaIdsToRoomNames, buildSupportedAreas, OperatingModes, Properties } from './sharkiq-js/sharkiq.js'
 
 /**
  * SharkIQMatterPlatform
@@ -152,6 +152,12 @@ export class SharkIQMatterPlatform extends SharkIQPlatform {
               ],
               currentMode: 0,
             },
+            // ServiceArea: room selection, from the vacuum's own map (#41). Only
+            // declared when the vacuum reports a room list - advertising an empty
+            // area list would give a controller a picker with nothing in it.
+            ...(vacuumDevice.get_room_list?.()?.length
+              ? { serviceArea: { supportedAreas: buildSupportedAreas(vacuumDevice.get_room_list()), selectedAreas: [] } }
+              : {}),
             rvcOperationalState: {
               // operationalStateLabel is only permitted on manufacturer-specific
               // states (IDs 128-191). Matter.js rejects it on the standard states
@@ -241,8 +247,24 @@ export class SharkIQMatterPlatform extends SharkIQPlatform {
    * plain resume-in-place when it is already paused mid-clean.
    */
   private _buildMatterHandlers(_matterApi: any, _uuid: string, vacuumDevice: SharkIqVacuum): Record<string, unknown> {
-    const startCleaning = () => vacuumDevice.clean_rooms([])
-      .catch(createPromiseRejectionHandler(this.log, 'Matter start cleaning'))
+    // Rooms the controller has selected, as area ids. Held here rather than read
+    // back from the cluster so a clean uses whatever was chosen most recently,
+    // and cleared once used so the next plain "start" is a whole-house clean
+    // again rather than silently repeating the last room.
+    let selectedAreaIds: number[] = []
+
+    const startCleaning = () => {
+      const rooms = areaIdsToRoomNames(selectedAreaIds, vacuumDevice.get_room_list?.() ?? [])
+      selectedAreaIds = []
+      if (rooms.length > 0) {
+        this.log.info(`Matter asked for a clean of: ${rooms.join(', ')}`)
+      }
+      // An empty list means a whole-house clean. It must stay empty rather than
+      // becoming an empty area filter - that is what stopped the vacuum leaving
+      // the dock in #68.
+      return vacuumDevice.clean_rooms(rooms)
+        .catch(createPromiseRejectionHandler(this.log, 'Matter start cleaning'))
+    }
     const returnToDock = () => vacuumDevice.cancel_clean()
       .catch(createPromiseRejectionHandler(this.log, 'Matter return to dock'))
 
@@ -254,6 +276,26 @@ export class SharkIQMatterPlatform extends SharkIQPlatform {
           } else {
             await returnToDock()
           }
+        },
+      },
+      serviceArea: {
+        selectAreas: async ({ newAreas }: { newAreas: number[] }) => {
+          const rooms = vacuumDevice.get_room_list?.() ?? []
+          const names = areaIdsToRoomNames(newAreas ?? [], rooms)
+          if ((newAreas ?? []).length > 0 && names.length === 0) {
+            // Every id was unrecognised, most likely a stale selection from a
+            // renamed or reordered map. Say so rather than quietly cleaning
+            // the whole house when the user asked for one room.
+            this.log.warn(`Matter selected area(s) ${(newAreas ?? []).join(', ')} which are not on this vacuum's map - ignoring the selection.`)
+            selectedAreaIds = []
+            return
+          }
+          selectedAreaIds = newAreas ?? []
+          this.log.debug(`Matter selected area(s): ${names.join(', ') || 'none'}`)
+        },
+        skipArea: async () => {
+          // Skipping the area in progress is not something the Shark API exposes.
+          this.log.debug('Matter asked to skip the current area, which this vacuum does not support.')
         },
       },
       rvcOperationalState: {

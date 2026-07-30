@@ -78,6 +78,112 @@ export function describeAreaFilter(name: string, raw: unknown): string {
   return `${name}: ${text.length} byte(s) hex=${hex} printable="${printable}"`
 }
 
+/**
+ * Options for a V3 room clean, with the defaults observed on a real vacuum.
+ *
+ * ⚠️ Every value here came from ONE device (RV2800AF-UK, #41) doing one clean.
+ * They are what the SharkClean app sent, not a documented default, so they are
+ * settings rather than constants.
+ */
+export interface RoomCleanOptions {
+  /**
+   * Key inside `areas_to_clean`. The observed value was `UltraClean`, which is
+   * what that app calls "Matrix Clean". Other models may name it differently.
+   */
+  mode?: string
+  /** Number of passes. Observed: 2. */
+  cleanCount?: number
+  /** `dry` to vacuum, and presumably `wet`/`mop` on models that mop. Observed: `dry`. */
+  cleanType?: string
+}
+
+export const ROOM_CLEAN_DEFAULTS: Required<RoomCleanOptions> = {
+  mode: 'UltraClean',
+  cleanCount: 2,
+  cleanType: 'dry',
+}
+
+/**
+ * Build the V3 area filter: plain JSON, unlike V2's length-prefixed binary blob.
+ *
+ * Reproduced from a capture in #41 — a Kitchen clean started from the app sent:
+ *
+ * ```json
+ * {"areas_to_clean":{"UltraClean":["Kitchen"]},"clean_count":2,"floor_id":"6ABE3ECC","cleantype":"dry"}
+ * ```
+ *
+ * Key order matches that payload. It should not matter to a JSON parser, but
+ * this is reverse-engineered from one sample and there is no upside to differing.
+ *
+ * `floorId` is the map identifier from `Robot_Room_List`, so no extra lookup is
+ * needed — the room list already carries it.
+ */
+export function encodeRoomListV3(rooms: string[], floorId: string, options: RoomCleanOptions = {}): string {
+  const { mode, cleanCount, cleanType } = { ...ROOM_CLEAN_DEFAULTS, ...options }
+  return JSON.stringify({
+    areas_to_clean: { [mode]: rooms },
+    clean_count: cleanCount,
+    floor_id: floorId,
+    cleantype: cleanType,
+  })
+}
+
+/**
+ * Which area-filter property to write for this vacuum.
+ *
+ * A vacuum that reports V3 is on the newer scheme and ignores V2 — confirmed in
+ * #41, where V2 stayed at `*` for the whole of a room clean while V3 carried the
+ * request. Older vacuums never report V3, so they keep the V2 binary path.
+ */
+export function chooseAreaFilterProperty(propertyValues: Record<string, unknown> | undefined): 'AreasToClean_V2' | 'AreasToClean_V3' {
+  return propertyValues?.AreasToClean_V3 === undefined ? 'AreasToClean_V2' : 'AreasToClean_V3'
+}
+
+/** One entry of the Matter ServiceArea cluster's `supportedAreas`. */
+export interface MatterSupportedArea {
+  areaId: number
+  mapId: number | null
+  areaInfo: {
+    locationInfo: { locationName: string, floorNumber: number | null, areaType: number | null }
+    landmarkInfo: null
+  }
+}
+
+/**
+ * Turn the vacuum's room list into Matter `supportedAreas`.
+ *
+ * ⚠️ Area ids are the room's 1-based position in the list, so they are only as
+ * stable as the order the vacuum reports. If a user renames or reorders rooms in
+ * the SharkClean app, a controller's saved selection can point at a different
+ * room. Ids start at 1 because 0 is a reserved-looking value that some
+ * controllers treat as "unset".
+ */
+export function buildSupportedAreas(rooms: string[]): MatterSupportedArea[] {
+  return rooms.map((locationName, index) => ({
+    areaId: index + 1,
+    mapId: null,
+    areaInfo: {
+      locationInfo: { locationName, floorNumber: null, areaType: null },
+      landmarkInfo: null,
+    },
+  }))
+}
+
+/**
+ * Map the area ids a controller selected back to the room names the vacuum wants.
+ *
+ * Unknown ids are dropped rather than throwing: a stale selection left over from
+ * a renamed map should clean the rooms it still recognises, not fail outright.
+ * An empty result means "no recognised rooms", which callers must treat as a
+ * whole-house clean rather than an empty area filter — writing an empty filter is
+ * what stopped the vacuum leaving the dock in #68.
+ */
+export function areaIdsToRoomNames(areaIds: number[], rooms: string[]): string[] {
+  return areaIds
+    .map(id => rooms[id - 1])
+    .filter((name): name is string => typeof name === 'string')
+}
+
 export interface DeviceDct {
   dsn: string
   key: string
@@ -109,6 +215,8 @@ class SharkIqVacuum {
   log: Logger
   _error: string | null
   skegox: SkegoxApi | null
+  /** Per-vacuum overrides for the V3 room-clean payload (#41) */
+  roomCleanOptions: RoomCleanOptions
 
   // Shark IQ vacuum entity
   constructor(ayla_api: AylaApi, device_dct: DeviceDct, log: Log, europe = false) {
@@ -127,6 +235,7 @@ class SharkIqVacuum {
     this.log = log
     this._error = null
     this.skegox = null
+    this.roomCleanOptions = {}
   }
 
   // Get oem model number
@@ -542,9 +651,15 @@ class SharkIqVacuum {
       // filter first told the vacuum to clean an empty set of areas, so it
       // accepted START but never left the dock (#68).
       if (rooms && rooms.length > 0) {
-        this.log.debug(`Starting a clean of ${rooms.length} room(s).`)
-        const payload = this._encode_room_list(rooms)
-        await this.set_property_value(Properties.AREAS_TO_CLEAN, payload)
+        // Which generation of the area filter this vacuum listens to decides
+        // both the property AND the encoding - V3 is JSON, V2 a binary blob, so
+        // the two are not interchangeable (#41).
+        const property = chooseAreaFilterProperty(this.property_values)
+        const payload = property === 'AreasToClean_V3'
+          ? encodeRoomListV3(rooms, this._get_device_room_list().identifier, this.roomCleanOptions)
+          : this._encode_room_list(rooms)
+        this.log.debug(`Starting a clean of ${rooms.length} room(s) via ${property}: ${payload}`)
+        await this.set_property_value(property, payload)
       } else {
         this.log.debug('Starting a whole-house clean.')
       }
