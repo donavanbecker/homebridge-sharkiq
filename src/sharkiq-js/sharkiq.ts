@@ -344,6 +344,21 @@ export function isKnownCleanMode(mode: number): boolean {
 }
 
 /**
+ * The operating mode this vacuum actually uses for "paused" (#88).
+ *
+ * ⚠️ **It is `STOP`, not `PAUSE`.** Despite the name, `OperatingModes.PAUSE` (1)
+ * is a value this vacuum uses in neither direction: a paused Shark *reports*
+ * `STOP`, and writing `PAUSE` to it does nothing at all. The HAP path has always
+ * paused with `STOP`, and the Matter polling loop already reads `STOP` as
+ * Matter's Paused state — only the Matter pause/resume handlers disagreed, so
+ * Home showed "Paused" while the vacuum carried on cleaning.
+ *
+ * Everything that pauses, resumes, or tests for paused uses this, so the read
+ * and write sides cannot drift apart again.
+ */
+export const PAUSED_OPERATING_MODE = OperatingModes.STOP
+
+/**
  * Matter `RvcOperationalState` error state IDs, from the spec (#88).
  *
  * As with `MODE_TAG`, `@matter` is not a runtime dependency so these cannot be
@@ -623,6 +638,22 @@ class SharkIqVacuum {
   /** Whether the vacuum is currently running a job. */
   is_running(): boolean {
     return this.operating_mode() === OperatingModes.START
+  }
+
+  /** Whether a clean is paused. See {@link PAUSED_OPERATING_MODE}. */
+  is_paused(): boolean {
+    return this.operating_mode() === PAUSED_OPERATING_MODE
+  }
+
+  /**
+   * Make the vacuum play a sound so it can be found (#88).
+   *
+   * ⚠️ Untested against real hardware — `Find_Device` is in the property list
+   * every vacuum reports, and 1 is the obvious trigger, but nobody has confirmed
+   * the vacuum acts on it.
+   */
+  async find_device(): Promise<void> {
+    await this.set_property_value(Properties.FIND_DEVICE, 1)
   }
 
   // Update vacuum details such as the model and serial number. These come

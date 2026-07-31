@@ -6,7 +6,7 @@ import { TIMEOUTS } from './constants.js'
 import { createPromiseRejectionHandler } from './errorHandling.js'
 import { SharkIQPlatform } from './platform.js'
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
-import { areaIdsToRoomNames, buildServiceAreaCluster, isKnownCleanMode, MATTER_CLEAN_MODES, matterOperationalError, matterPowerSourceState, OperatingModes, Properties } from './sharkiq-js/sharkiq.js'
+import { areaIdsToRoomNames, buildServiceAreaCluster, isKnownCleanMode, MATTER_CLEAN_MODES, matterOperationalError, matterPowerSourceState, OperatingModes, PAUSED_OPERATING_MODE, Properties } from './sharkiq-js/sharkiq.js'
 
 /**
  * How long to wait after a command before re-reading the vacuum (#88).
@@ -345,8 +345,11 @@ export class SharkIQMatterPlatform extends SharkIQPlatform {
       },
       rvcOperationalState: {
         resume: async () => {
-          // Resume in place if a clean is paused, otherwise start a fresh clean
-          if (vacuumDevice.operating_mode() === OperatingModes.PAUSE) {
+          // Resume in place if a clean is paused, otherwise start a fresh clean.
+          // ⚠️ Paused is PAUSED_OPERATING_MODE (STOP), not OperatingModes.PAUSE -
+          // testing for PAUSE here never matched, so a paused vacuum was sent a
+          // whole fresh clean instead of being resumed (#88).
+          if (vacuumDevice.is_paused()) {
             await vacuumDevice.set_operating_mode(OperatingModes.START)
               .then(commandSent)
               .catch(createPromiseRejectionHandler(this.log, 'Matter resume cleaning'))
@@ -355,12 +358,25 @@ export class SharkIQMatterPlatform extends SharkIQPlatform {
           }
         },
         pause: async () => {
-          await vacuumDevice.set_operating_mode(OperatingModes.PAUSE)
+          // ⚠️ PAUSED_OPERATING_MODE, not OperatingModes.PAUSE - writing PAUSE
+          // does nothing on this vacuum, so Home showed Paused while it carried
+          // on cleaning (#88).
+          await vacuumDevice.set_operating_mode(PAUSED_OPERATING_MODE)
             .then(commandSent)
             .catch(createPromiseRejectionHandler(this.log, 'Matter pause cleaning'))
         },
         goHome: async () => {
           await returnToDock()
+        },
+      },
+      // "Play Sound to Locate" in Home. Without a handler the button appeared
+      // but did nothing at all, since nothing was ever sent (#88).
+      identify: {
+        identify: async () => {
+          this.log.info(`${vacuumDevice._name}: playing a sound to locate it`)
+          await vacuumDevice.find_device()
+            .then(commandSent)
+            .catch(createPromiseRejectionHandler(this.log, 'Matter locate vacuum'))
         },
       },
     }
@@ -395,7 +411,7 @@ export class SharkIQMatterPlatform extends SharkIQPlatform {
         const mode = vacuumDevice.operating_mode()
         const dockedStatus = vacuumDevice.docked_status()
         const isActive = mode === OperatingModes.START || mode === OperatingModes.STOP
-        const isPaused = mode === OperatingModes.STOP
+        const isPaused = vacuumDevice.is_paused()
         const isDocked = invertDockedStatus ? dockedStatus !== 1 : dockedStatus === 1
 
         let operationalState = 66 // Docked

@@ -1,10 +1,11 @@
 import { RvcOperationalState } from '@matter/types/clusters/rvc-operational-state'
 import { describe, expect, it } from 'vitest'
 
-import { ERROR_MESSAGES } from './properties.js'
+import { ERROR_MESSAGES, OperatingModes } from './properties.js'
 import {
   MATTER_ERROR_STATE,
   matterOperationalError,
+  PAUSED_OPERATING_MODE,
   readFlag,
   readVacuumFault,
   readWaterTank,
@@ -144,5 +145,22 @@ describe('matterOperationalError', () => {
   it('prefers a real fault over an empty water tank', () => {
     const error = matterOperationalError(readVacuumFault(4), emptyTank, true)
     expect(error.errorStateId).toBe(MATTER_ERROR_STATE.brushJammed)
+  })
+})
+
+/**
+ * Pause (#88). Home showed "Paused" while the vacuum carried on cleaning,
+ * because the Matter handler wrote a mode this vacuum does not use.
+ */
+describe('pAUSED_OPERATING_MODE', () => {
+  it('is STOP, which is what a paused vacuum actually reports', () => {
+    expect(PAUSED_OPERATING_MODE).toBe(OperatingModes.STOP)
+  })
+
+  // ⚠️ The trap: `OperatingModes.PAUSE` reads like the right constant and is
+  // not. Writing it does nothing, and testing for it never matches, so pause
+  // and resume both silently failed over Matter while HAP worked fine.
+  it('is NOT OperatingModes.PAUSE, despite the name', () => {
+    expect(PAUSED_OPERATING_MODE).not.toBe(OperatingModes.PAUSE)
   })
 })
