@@ -46,7 +46,6 @@ Homebridge plugin to integrate Shark IQ robot vacuums into HomeKit
 - [Common Errors](https://github.com/homebridge-plugins/homebridge-sharkiq/wiki/Common-Errors)
 - [Support Request](https://github.com/homebridge-plugins/homebridge-sharkiq/issues/new/choose)
 - [Changelog](https://github.com/homebridge-plugins/homebridge-sharkiq/blob/latest/CHANGELOG.md)
-- [About Me](https://github.com/sponsors/bwp91)
 
 ### Credits
 
