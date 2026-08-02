@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file. This projec
 ### Changed
 
 - chore: remove personal funding links
+- docs: add node 26 to the supported node versions
 
 ## v1.6.3 (2026-07-31)
 
