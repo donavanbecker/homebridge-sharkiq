@@ -150,7 +150,11 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
     const newAccessories: PlatformAccessory[] = []
     const activeAccessories: PlatformAccessory[] = []
     const cachedActiveAccessories: PlatformAccessory[] = []
-    const unusedDeviceAccessories = this.accessories
+    // A copy, not a reference. This used to alias `this.accessories`, and the
+    // sweep at the end splices that same array while walking it - so with three
+    // stale accessories only the middle one was actually unregistered, and the
+    // other two stayed in HomeKit as ghost tiles that could never be cleaned up.
+    const unusedDeviceAccessories = [...this.accessories]
 
     const invertDockedStatus = this.config.invertDockedStatus || false
     const dockedUpdateInterval = this.config.dockedUpdateInterval || TIMEOUTS.DEFAULT_DOCKED_UPDATE_INTERVAL
@@ -204,11 +208,16 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, newAccessories)
     }
 
-    unusedDeviceAccessories.forEach((unusedDeviceAccessory) => {
-      this.log.info(`Removing unused accessory with name ${unusedDeviceAccessory.displayName}`)
-      this.accessories.splice(this.accessories.indexOf(unusedDeviceAccessory), 1)
-    })
+    if (unusedDeviceAccessories.length > 0) {
+      unusedDeviceAccessories.forEach((unusedDeviceAccessory) => {
+        this.log.info(`Removing unused accessory with name ${unusedDeviceAccessory.displayName}`)
+        const index = this.accessories.indexOf(unusedDeviceAccessory)
+        if (index >= 0) {
+          this.accessories.splice(index, 1)
+        }
+      })
 
-    this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, unusedDeviceAccessories)
+      this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, unusedDeviceAccessories)
+    }
   }
 }

@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file. This projec
 - chore: remove personal funding links
 - docs: add node 26 to the supported node versions
 - chore: exclude test files and the test config from the published package
+- fix: remove every stale accessory, instead of skipping every other one
 
 ## v1.6.3 (2026-07-31)
 
