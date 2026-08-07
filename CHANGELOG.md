@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file. This projec
 - docs: add node 26 to the supported node versions
 - chore: exclude test files and the test config from the published package
 - fix: remove every stale accessory, instead of skipping every other one
+- fix: keep the vacuums when the account list comes back empty
 
 ## v1.6.3 (2026-07-31)
 

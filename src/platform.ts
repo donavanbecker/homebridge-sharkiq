@@ -63,6 +63,16 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
             log.warn(`None of the DSNs provided matched the vacuum(s) on your account. Configured: [${configuredDsns.join(', ')}], discovered: [${discovered.join(', ')}]. Leave the DSN list empty to add every vacuum on your account.`)
           }
         }
+        // An empty list is not proof the account has no vacuums. Every fetch
+        // failure inside the Ayla client is swallowed and returned as an empty
+        // array, so the internet being down at startup used to look exactly like
+        // "the owner deleted their vacuum" - and discoverDevices() then removed
+        // every cached accessory, taking its room, scenes and automations with it.
+        if (devices.length === 0) {
+          log.warn('No vacuums came back from the SharkNinja account this time, so the existing accessories have been left alone.')
+          return
+        }
+
         this.discoverDevices()
       }).catch((error) => {
         log.error('Error with login.')
