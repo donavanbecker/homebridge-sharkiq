@@ -88,14 +88,16 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
     const auth_file = join(storagePath, global_vars.FILE)
     const oauth_file = join(storagePath, global_vars.OAUTH.FILE)
     const oAuthCode = this.config.oAuthCode || ''
-    const email = this.config.email || ''
-    const password = this.config.password || ''
-    // Log which login method is being used based on user configuration
-    // Email/password takes precedence if both are provided (matches Login class logic)
-    if (email && typeof email === 'string' && email.trim() !== ''
-      && password && typeof password === 'string' && password.trim() !== '') {
-      this.log.info('Valid email and password present, using email and password login method.')
-    } else if (oAuthCode && typeof oAuthCode === 'string' && oAuthCode.trim() !== '') {
+    // There used to be an email/password path announced here. Nothing ever
+    // authenticated with those values - Login.checkLogin only implements OAuth -
+    // and neither key was in the settings schema, so anyone who hand-edited them
+    // in was told the plugin was using them and then handed a login failure.
+    const email = ''
+    const password = ''
+    if (this.config.email || this.config.password) {
+      this.log.warn('Email and password are not used by this plugin. Sign in with the OAuth flow in the Homebridge UI instead.')
+    }
+    if (oAuthCode && typeof oAuthCode === 'string' && oAuthCode.trim() !== '') {
       this.log.info('Valid OAuth code present, using OAuth login method.')
     }
 
