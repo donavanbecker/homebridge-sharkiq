@@ -1007,7 +1007,14 @@ class SharkIqVacuum {
 
   // Get object of the device room list for starting a clean
   _get_device_room_list(): { identifier: string, rooms: string[] } {
+    // Many models never report Robot_Room_List at all. This used to call .split()
+    // on undefined and throw, which aborted Matter registration entirely and left
+    // the owner with no accessories - after the cached HAP ones had already been
+    // removed.
     const room_list = this.get_property_value(Properties.ROBOT_ROOM_LIST)
+    if (typeof room_list !== 'string' || room_list === '') {
+      return { identifier: '', rooms: [] }
+    }
     const split = room_list.split(':')
     return {
       identifier: split[0],

@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file. This projec
 - fix: remove every stale accessory, instead of skipping every other one
 - fix: keep the vacuums when the account list comes back empty
 - fix: stop writing login tokens into the debug log
+- fix: register a vacuum that does not report a room list, instead of failing outright
 
 ## v1.6.3 (2026-07-31)
 
