@@ -62,14 +62,24 @@ export async function exchangeOAuthCodeForAuthTokens(
     },
     body: JSON.stringify(data),
   }
-  log?.debug('Request Data', JSON.stringify(data))
+  // Report what was sent, never the values. This body carries the PKCE code
+  // verifier and the single-use authorization code; the responses below carry the
+  // id, access and refresh tokens. Anyone turning debug on to troubleshoot a login
+  // - exactly when these fire - and then pasting the log into a GitHub issue used
+  // to publish a working refresh token for their SharkNinja account, and a refresh
+  // token is long lived.
+  log?.debug('Request Data keys:', Object.keys(data).join(', '))
 
   const response = await fetch(oauthConfig.TOKEN_URL, reqData)
   if (!response.ok) {
     return Promise.reject(new Error(describeTokenExchangeFailure(response.status)))
   }
   const tokenData = await response.json() as { id_token: string, refresh_token?: string, expires_in?: number }
-  log?.debug('Token Data:', JSON.stringify(tokenData))
+  log?.debug('Token Data received:', [
+    `id_token: ${tokenData.id_token ? 'present' : 'missing'}`,
+    `refresh_token: ${tokenData.refresh_token ? 'present' : 'missing'}`,
+    `expires_in: ${tokenData.expires_in ?? 'not given'}`,
+  ].join(', '))
 
   // Keep the Auth0 token set too - the newer SharkNinja device API signs its
   // requests with the id_token directly, and the refresh token lets the
@@ -104,7 +114,11 @@ export async function exchangeOAuthCodeForAuthTokens(
   const aylaTokenData = await response2.json() as { expires_in: number } & Record<string, any>
   const dateNow = new Date()
   aylaTokenData.expiration = addSeconds(dateNow, aylaTokenData.expires_in)
-  log?.debug('Setting auth data...', JSON.stringify(aylaTokenData))
+  log?.debug('Setting auth data...', [
+    `access_token: ${aylaTokenData.access_token ? 'present' : 'missing'}`,
+    `refresh_token: ${aylaTokenData.refresh_token ? 'present' : 'missing'}`,
+    `expiration: ${aylaTokenData.expiration}`,
+  ].join(', '))
 
   await setAuthData(auth_file, aylaTokenData as unknown as import('./type').AuthData)
   await removeFile(oauth_file).catch(() => undefined)
