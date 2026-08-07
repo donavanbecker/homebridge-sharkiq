@@ -33,6 +33,12 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
     this.log.debug('Finished initializing platform:', this.config.name)
 
     // Start plugin and attempt to login
+    // Stop polling on the way out, so the timers do not keep calling the cloud -
+    // or hold the process open - after Homebridge has said stop
+    this.api.on('shutdown', () => {
+      this.shutdownPolling()
+    })
+
     this.api.on('didFinishLaunching', () => {
       const configuredDsns = Array.isArray(config.vacuums)
         ? (config.vacuums as unknown[]).filter((dsn): dsn is string => typeof dsn === 'string' && dsn.trim() !== '')
@@ -156,6 +162,12 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
     this.accessories.push(accessory)
   }
 
+  // Stop every timer this platform started. Overridden by the Matter platform,
+  // which owns its own poll timers.
+  protected shutdownPolling(): void {
+    this.accessories.forEach(accessory => (accessory as any).control?.shutdown?.())
+  }
+
   // Add vacuums to Homebridge.
   discoverDevices(): void {
     const externalAccessory = this.config.externalAccessory || false
@@ -196,8 +208,8 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
         .setCharacteristic(this.Characteristic.Model, vacuumDevice._vac_model_number || 'Unknown')
         .setCharacteristic(this.Characteristic.SerialNumber, vacuumDevice._dsn)
 
-      activeAccessories.push(accessory)
-      void new SharkIQAccessory(this, accessory, vacuumDevice, this.api.hap.uuid, this.log, invertDockedStatus, dockedUpdateInterval, showErrorSensor, showWaterTankSensor, showMopPlateSensor)
+      activeAccessories.push(accessory);
+      (accessory as any).control = new SharkIQAccessory(this, accessory, vacuumDevice, this.api.hap.uuid, this.log, invertDockedStatus, dockedUpdateInterval, showErrorSensor, showWaterTankSensor, showMopPlateSensor)
     })
 
     if (externalAccessory) {

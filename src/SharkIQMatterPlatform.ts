@@ -43,7 +43,14 @@ export class SharkIQMatterPlatform extends SharkIQPlatform {
    * next poll — up to a 30 second wait, which reads as an unresponsive
    * accessory even though the vacuum obeyed within a second (#88).
    */
+  private readonly matterPollTimers = new Map<string, ReturnType<typeof setInterval>>()
   private readonly matterRefreshers: Map<string, () => Promise<void>> = new Map()
+
+  protected override shutdownPolling(): void {
+    super.shutdownPolling()
+    this.matterPollTimers.forEach(timer => clearInterval(timer))
+    this.matterPollTimers.clear()
+  }
 
   constructor(
     log: Logger,
@@ -478,9 +485,11 @@ export class SharkIQMatterPlatform extends SharkIQPlatform {
     // as soon as the vacuum has acted on it rather than on the next poll (#88).
     this.matterRefreshers.set(uuid, updateMatterState)
 
-    // Initial fetch, then periodic
+    // Initial fetch, then periodic. The handle is kept so the timer can be
+    // cleared on shutdown - it used to be discarded, so it kept firing against a
+    // torn-down Matter server and held the process open.
     void updateMatterState()
-    setInterval(() => void updateMatterState(), dockedUpdateInterval)
+    this.matterPollTimers.set(uuid, setInterval(() => void updateMatterState(), dockedUpdateInterval))
   }
 
   /**

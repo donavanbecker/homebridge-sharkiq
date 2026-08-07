@@ -8,6 +8,7 @@ import { createPromiseRejectionHandler } from './errorHandling.js'
 import { OperatingModes, PowerModes, Properties } from './sharkiq-js/sharkiq.js'
 
 export class SharkIQAccessory {
+  private updateTimer?: ReturnType<typeof setTimeout>
   private service: Service
   private dockedStatusService: Service
   private vacuumPausedService: Service
@@ -143,12 +144,31 @@ export class SharkIQAccessory {
     }
   }
 
-  // Retrieve vacuum states interval function
+  // Retrieve vacuum states interval function.
+  //
+  // This was a setInterval, which fixes its period when it is created - so the
+  // back-off `dockedDelay` picks up after a 429 or an error was written on every
+  // poll and read by nothing, and the plugin kept hammering the API at the normal
+  // rate while Shark was asking it to slow down. It also could not be cleared, and
+  // its async callback could overlap itself on a slow cycle. Rescheduling after
+  // each run fixes all three.
   async retrieveVacuumStateInterval(): Promise<void> {
-    setInterval(async () => {
+    const runOnce = async () => {
       await this.retrieveVacuumStates()
         .catch(createPromiseRejectionHandler(this.log, 'interval update'))
-    }, this.dockedUpdateInterval + this.dockedDelay)
+      this.updateTimer = setTimeout(() => void runOnce(), this.dockedUpdateInterval + this.dockedDelay)
+    }
+
+    this.updateTimer = setTimeout(() => void runOnce(), this.dockedUpdateInterval + this.dockedDelay)
+  }
+
+  // Stop polling, so the timer does not keep calling the cloud - or hold the
+  // process open - after Homebridge has asked the plugin to stop
+  public shutdown(): void {
+    if (this.updateTimer) {
+      clearTimeout(this.updateTimer)
+      this.updateTimer = undefined
+    }
   }
 
   // Retrieve docked status
