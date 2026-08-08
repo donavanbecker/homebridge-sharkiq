@@ -1,7 +1,6 @@
 import type { Logger } from 'homebridge'
 
 import { join } from 'node:path'
-import process from 'node:process'
 
 import { generateURL, getAuthData, getOAuthData, removeFile, setAuth0Data, setAuthData } from './config.js'
 import { global_vars } from './sharkiq-js/const.js'
@@ -128,19 +127,15 @@ export class Login {
   public log: Logger
   public auth_file: string
   public oauth_file: string
-  public email: string
-  public password: string
   public app_id: string
   public app_secret: string
   public oAuthCode: string
   public europe: boolean
 
-  constructor(log: Logger, auth_file: string, oauth_file: string, email: string, password: string, oAuthCode: string, europe = false, app_id?: string, app_secret?: string) {
+  constructor(log: Logger, auth_file: string, oauth_file: string, oAuthCode: string, europe = false, app_id?: string, app_secret?: string) {
     this.log = log
     this.auth_file = auth_file
     this.oauth_file = oauth_file
-    this.email = email
-    this.password = password
     this.oAuthCode = oAuthCode
     this.europe = europe
     this.app_id = app_id || (europe ? global_vars.EU_SHARK_APP_ID : global_vars.SHARK_APP_ID)
@@ -153,32 +148,25 @@ export class Login {
       this.log.debug('Already logged in to Shark')
     } catch {
       this.log.debug('Not logged in to Shark')
-      const email = this.email
-      const password = this.password
-
-      const architecture = process.arch
-      const platform = process.platform
-      if (email === '' && password === '') {
-        if (this.oAuthCode === '') {
-          try {
-            const url = await generateURL(this.oauth_file, this.europe)
-            return Promise.reject(new Error(`Please login to Shark using the following URL: ${url}`))
-          } catch (error) {
-            return Promise.reject(error)
-          }
-        } else {
-          try {
-            await this.loginCallback(this.oAuthCode)
-          } catch (error) {
-            this.log.warn('OAuth data not found with OAuth code set. Please clear the OAuth code and try again.')
-            return Promise.reject(error)
-          }
+      // OAuth is the only login this plugin implements. There used to be an
+      // email/password branch here as well, but the caller has only ever passed
+      // empty strings for those, so it could not run - and the message it would
+      // have printed, that browser login is disabled on this platform, was not
+      // true of any platform.
+      if (this.oAuthCode === '') {
+        try {
+          const url = await generateURL(this.oauth_file, this.europe)
+          return Promise.reject(new Error(`Please login to Shark using the following URL: ${url}`))
+        } catch (error) {
+          return Promise.reject(error)
         }
       } else {
-        this.log.warn(`Automatic browser login is disabled on ${platform} ${architecture}.`)
-        this.log.info('Use OAuth login from the Homebridge UI, or set oAuthCode in config.')
-        const url = await generateURL(this.oauth_file, this.europe)
-        return Promise.reject(new Error(`Please login to Shark using the following URL: ${url}`))
+        try {
+          await this.loginCallback(this.oAuthCode)
+        } catch (error) {
+          this.log.warn('OAuth data not found with OAuth code set. Please clear the OAuth code and try again.')
+          return Promise.reject(error)
+        }
       }
     }
   }

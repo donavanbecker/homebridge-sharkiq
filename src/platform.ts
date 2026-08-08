@@ -98,8 +98,6 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
     // authenticated with those values - Login.checkLogin only implements OAuth -
     // and neither key was in the settings schema, so anyone who hand-edited them
     // in was told the plugin was using them and then handed a login failure.
-    const email = ''
-    const password = ''
     if (this.config.email || this.config.password) {
       this.log.warn('Email and password are not used by this plugin. Sign in with the OAuth flow in the Homebridge UI instead.')
     }
@@ -107,12 +105,7 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
       this.log.info('Valid OAuth code present, using OAuth login method.')
     }
 
-    if (email !== '' && password === '') {
-      return Promise.reject(new Error('Password must be present in the config if email is provided.'))
-    } else if (email === '' && password !== '') {
-      return Promise.reject(new Error('Email must be present in the config if password is provided.'))
-    }
-    const login = new Login(this.log, auth_file, oauth_file, email, password, oAuthCode, europe)
+    const login = new Login(this.log, auth_file, oauth_file, oAuthCode, europe)
     try {
       await login.checkLogin()
       const ayla_api = get_ayla_api(auth_file, this.log, europe)
