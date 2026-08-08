@@ -7,6 +7,7 @@ import { createPromiseRejectionHandler } from './errorHandling.js'
 import { SharkIQPlatform } from './platform.js'
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
 import { areaIdsToRoomNames, buildServiceAreaCluster, isKnownCleanMode, MATTER_CLEAN_MODES, matterOperationalError, matterPowerSourceState, OperatingModes, PAUSED_OPERATING_MODE, Properties } from './sharkiq-js/sharkiq.js'
+import { safeTimerMs } from './utils.js'
 
 /**
  * How long to wait after a command before re-reading the vacuum (#88).
@@ -395,7 +396,10 @@ export class SharkIQMatterPlatform extends SharkIQPlatform {
    * `api.matter.updateAccessoryState`.
    */
   private _startVacuumPolling(matterApi: any, uuid: string, vacuumDevice: SharkIqVacuum): void {
-    const dockedUpdateInterval = this.config.dockedUpdateInterval || TIMEOUTS.DEFAULT_DOCKED_UPDATE_INTERVAL
+    // Clamped: this value is used as a timer delay in milliseconds, and past
+    // 2147483647 a Node timer does not throw - it quietly becomes 1 ms, which
+    // would poll the vacuum a thousand times a second.
+    const dockedUpdateInterval = safeTimerMs(this.config.dockedUpdateInterval || TIMEOUTS.DEFAULT_DOCKED_UPDATE_INTERVAL)
     const invertDockedStatus = this.config.invertDockedStatus || false
 
     const updateMatterState = async () => {

@@ -12,6 +12,7 @@ import { get_ayla_api } from './sharkiq-js/ayla_api.js'
 import { global_vars } from './sharkiq-js/const.js'
 import { ROOM_CLEAN_PRESETS } from './sharkiq-js/sharkiq.js'
 import { SkegoxApi } from './sharkiq-js/skegox_api.js'
+import { safeTimerMs } from './utils.js'
 
 // SharkIQPlatform Main Class
 export class SharkIQPlatform implements DynamicPlatformPlugin {
@@ -174,7 +175,10 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
     const unusedDeviceAccessories = [...this.accessories]
 
     const invertDockedStatus = this.config.invertDockedStatus || false
-    const dockedUpdateInterval = this.config.dockedUpdateInterval || TIMEOUTS.DEFAULT_DOCKED_UPDATE_INTERVAL
+    // Clamped: this value is used as a timer delay in milliseconds, and past
+    // 2147483647 a Node timer does not throw - it quietly becomes 1 ms, which
+    // would poll the vacuum a thousand times a second.
+    const dockedUpdateInterval = safeTimerMs(this.config.dockedUpdateInterval || TIMEOUTS.DEFAULT_DOCKED_UPDATE_INTERVAL)
     // Off by default: each adds a tile to Home, so an existing setup must look
     // exactly as it did until someone asks for them (#88).
     const showErrorSensor = this.config.errorSensor || false

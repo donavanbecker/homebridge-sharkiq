@@ -39,7 +39,9 @@
       "dockedUpdateInterval": {
         "title": "Docked Update Interval",
         "type": "integer",
-        "default": 30000
+        "default": 30000,
+        "minimum": 1000,
+        "maximum": 2073600000
       },
       "externalAccessory": {
         "title": "Publish as External Accessory",
