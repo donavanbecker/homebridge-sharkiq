@@ -17,6 +17,7 @@ All notable changes to this project will be documented in this file. This projec
 - fix: back off when shark asks the plugin to slow down, and stop polling on shutdown
 - fix: drop the unreachable email and password login path, which could never run
 - fix: clamp the docked update interval, so a very large value cannot make it poll every millisecond
+- chore(deps): dependency updates
 
 ## v1.6.3 (2026-07-31)
 
