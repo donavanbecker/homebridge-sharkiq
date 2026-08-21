@@ -80,6 +80,35 @@ describe('skegoxApi', () => {
     expect(api.available('OTHER')).toBe(false)
   })
 
+  it('names a vacuum the registry has no name for, rather than calling it "unnamed"', async () => {
+    // One24th's RV761 (#91) came back with no Product_Name, no name and no
+    // Model_Number. Since these vacuums are now what the accessory is built
+    // from, "unnamed" would have become its name in HomeKit for good.
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      const ok = (data: unknown) => ({ ok: true, status: 200, json: async () => data, text: async () => '' })
+      if (url.includes('/householdsEndUser')) {
+        return ok({ households: ['HH1'] })
+      }
+      if (url.includes('/users/user123')) {
+        return ok({ items: [{ deviceId: 'SND00000ABCD' }] })
+      }
+      if (url.includes('/devices/SND00000ABCD')) {
+        return ok({
+          registry: { Battery_Serial_Num: 'DSN123-SND00000ABCD' },
+          connectivityStatus: { connected: true },
+        })
+      }
+      return { ok: false, status: 404, json: async () => ({}), text: async () => 'not found' }
+    }))
+
+    const api = new SkegoxApi(log, writeAuth0File(dir))
+    await api.init()
+
+    const [device] = api.listDevices()
+    expect(device.name).not.toBe('unnamed')
+    expect(device.name).toBe('Shark ABCD')
+  })
+
   it('sends commands as a desired-state shadow patch', async () => {
     const fetchMock = stubFetch()
     const api = new SkegoxApi(log, writeAuth0File(dir))

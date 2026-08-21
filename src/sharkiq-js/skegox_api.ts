@@ -158,7 +158,14 @@ export class SkegoxApi {
         // Log what the account actually holds - a SharkNinja account can carry
         // non-vacuum appliances, and a vacuum can be present here while Ayla
         // never lists it, which looks identical to "no vacuum found" (#85)
-        const label = device?.registry?.Product_Name ?? device?.name ?? device?.registry?.Model_Number ?? 'unnamed'
+        // A vacuum that Ayla never listed often has no name here either, and
+        // "unnamed" then becomes the accessory's name in HomeKit for ever
+        // (#91). Fall back to something that at least says what it is, in the
+        // same shape the other plugins use for a nameless device.
+        const label = device?.registry?.Product_Name
+          || device?.name
+          || device?.registry?.Model_Number
+          || `Shark ${deviceId.slice(-4)}`
         const batterySerial: string = device?.registry?.Battery_Serial_Num ?? ''
         if (batterySerial.includes('-')) {
           const dsn = batterySerial.split('-')[0].trim().toUpperCase()

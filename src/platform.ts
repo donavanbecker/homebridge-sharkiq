@@ -235,6 +235,15 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
       if (accessory) {
         unusedDeviceAccessories.splice(unusedDeviceAccessories.indexOf(accessory), 1)
         cachedActiveAccessories.push(accessory)
+        // Keep the name Homebridge shows in step with the account. HomeKit owns
+        // the name it was first given and this cannot change that - but a
+        // vacuum that came through as "unnamed" should not stay that way in the
+        // logs and the UI. updateDisplayName also writes the HAP accessory's
+        // copy, which a plain assignment misses; it arrived in homebridge 1.10.
+        const currentName = vacuumDevice._name?.toString()
+        if (currentName && currentName !== accessory.displayName && typeof (accessory as any).updateDisplayName === 'function') {
+          (accessory as any).updateDisplayName(currentName)
+        }
       } else {
         accessory = new this.api.platformAccessory(vacuumDevice._name.toString(), uuid)
         newAccessories.push(accessory)

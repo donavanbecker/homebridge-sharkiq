@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file. This projec
 ### Changed
 
 - fix: add vacuums that only appear on the newer sharkninja api, instead of finding none at all
+- fix: give a vacuum the newer api has no name for a real name, instead of calling it unnamed
 
 ## v1.6.4 (2026-08-09)
 
