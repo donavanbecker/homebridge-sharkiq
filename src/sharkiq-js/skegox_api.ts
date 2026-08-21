@@ -8,6 +8,20 @@ import crypto from 'node:crypto'
 import { getAuth0Data, setAuth0Data } from '../config.js'
 import { global_vars } from './const.js'
 
+// One vacuum as the newer SharkNinja API describes it
+export interface SkegoxDevice {
+  /** The Ayla DSN, read from the battery serial number */
+  dsn: string
+  /** This API's own id for the device */
+  deviceId: string
+  /** The name shown in the SharkClean app */
+  name: string
+  /** The model number the registry holds, which can be empty */
+  model: string
+  /** Whether the device is currently live on this API */
+  connected: boolean
+}
+
 // Client for the newer SharkNinja device API used by the current SharkClean
 // app. Newer vacuums only act on commands sent through this API - the Ayla
 // API accepts the same commands but the vacuum ignores them (#68).
@@ -22,6 +36,7 @@ export class SkegoxApi {
   private user_id: string | null = null
   private household_id: string | null = null
   private dsn_to_device_id: Map<string, string> = new Map()
+  private mapped_devices: SkegoxDevice[] = []
   private state_cache: Map<string, { at: number, values: Record<string, unknown> }> = new Map()
 
   constructor(log: Logger, auth0_file: string, europe = false) {
@@ -151,6 +166,15 @@ export class SkegoxApi {
           // A vacuum can exist in the new registry without actually being
           // live on it - its shadow then accepts writes that nothing reads
           const connected = device?.connectivityStatus?.connected === true
+          // Kept so a vacuum that Ayla no longer lists can still be built
+          // into an accessory from what this API knows about it (#91)
+          this.mapped_devices.push({
+            dsn,
+            deviceId,
+            name: String(label),
+            model: String(device?.registry?.Model_Number ?? ''),
+            connected,
+          })
           this.log.debug(`Mapped vacuum DSN ${dsn} ("${label}") to new-API device ${deviceId} (connected: ${connected}).`)
         } else {
           this.log.debug(`New-API device ${deviceId} ("${label}") has no battery serial number, cannot map it to a DSN.`)
@@ -160,6 +184,11 @@ export class SkegoxApi {
       }
     }
     return this.dsn_to_device_id.size
+  }
+
+  // Every vacuum this API knows about, in the order it listed them
+  listDevices(): SkegoxDevice[] {
+    return [...this.mapped_devices]
   }
 
   // Whether commands for this vacuum can be sent through this API

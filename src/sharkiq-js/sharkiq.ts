@@ -540,6 +540,12 @@ class SharkIqVacuum {
   log: Logger
   _error: string | null
   skegox: SkegoxApi | null
+  /**
+   * Whether this vacuum exists only on the newer SharkNinja API. The Ayla
+   * account has no record of it, so there is nothing there to read or write
+   * and every request must go to the newer API instead (#91).
+   */
+  newApiOnly: boolean
   /** Per-vacuum overrides for the V3 room-clean payload (#41) */
   roomCleanOptions: RoomCleanOptions
 
@@ -560,6 +566,7 @@ class SharkIqVacuum {
     this.log = log
     this._error = null
     this.skegox = null
+    this.newApiOnly = false
     this.roomCleanOptions = {}
   }
 
@@ -718,6 +725,10 @@ class SharkIqVacuum {
         }
         return
       } catch (error) {
+        if (this.newApiOnly) {
+          this.log.warn(`Unable to set ${property_name} on ${this._dsn} (${error}).`)
+          return
+        }
         this.log.debug(`New SharkNinja API could not set ${property_name} (${error}), falling back to the Ayla API.`)
       }
     }
@@ -771,6 +782,12 @@ class SharkIqVacuum {
     const full_update = !property_list
     const url = this.update_url
     try {
+      // A vacuum the Ayla account has never heard of has no properties there
+      // to read, and asking anyway returns an error for every poll. The newer
+      // API is the only source of state for it, full updates included (#91).
+      if (this.newApiOnly) {
+        return await this._apply_skegox_state() ? 0 : ERROR_DELAY
+      }
       // Newer vacuums no longer report fresh state to the Ayla API, so read
       // the live state from the newer SharkNinja API when this vacuum is on
       // it (#68). Full updates still go to Ayla afterwards for the device

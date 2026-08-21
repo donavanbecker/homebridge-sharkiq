@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. This project uses [Semantic Versioning](https://semver.org/)
 
+## v1.6.5 (Pending Release)
+
+### Changed
+
+- fix: add vacuums that only appear on the newer sharkninja api, instead of finding none at all
+
 ## v1.6.4 (2026-08-09)
 
 ### Changed

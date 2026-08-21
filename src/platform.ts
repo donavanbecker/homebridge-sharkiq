@@ -1,6 +1,6 @@
 import type { API, Characteristic, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig, Service } from 'homebridge'
 
-import type { SharkIqVacuum } from './sharkiq-js/sharkiq'
+import type { AylaApi } from './sharkiq-js/ayla_api.js'
 
 import { join } from 'node:path'
 
@@ -10,7 +10,8 @@ import { SharkIQAccessory } from './platformAccessory.js'
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js'
 import { get_ayla_api } from './sharkiq-js/ayla_api.js'
 import { global_vars } from './sharkiq-js/const.js'
-import { ROOM_CLEAN_PRESETS } from './sharkiq-js/sharkiq.js'
+import { Properties } from './sharkiq-js/properties.js'
+import { ROOM_CLEAN_PRESETS, SharkIqVacuum } from './sharkiq-js/sharkiq.js'
 import { SkegoxApi } from './sharkiq-js/skegox_api.js'
 import { safeTimerMs } from './utils.js'
 
@@ -111,8 +112,14 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
       await login.checkLogin()
       const ayla_api = get_ayla_api(auth_file, this.log, europe)
       await ayla_api.sign_in()
-      const devices = await ayla_api.get_devices()
-      await this.enableSkegox(devices, storagePath, europe)
+      let devices = await ayla_api.get_devices()
+      const skegox = await this.enableSkegox(devices, storagePath, europe)
+      // Newer vacuums are dropping off the Ayla account altogether: the
+      // SharkClean app still shows them because it uses the newer API, while
+      // the list this plugin builds accessories from comes back empty (#91).
+      if (devices.length === 0 && skegox) {
+        devices = await this.adoptNewApiVacuums(ayla_api, skegox, europe)
+      }
       // Room cleans default to the app's plain "Clean". Matrix Clean is the
       // app's second button for a room - two passes, different mode key (#41).
       const roomCleanPreset = this.config.matrixClean ? ROOM_CLEAN_PRESETS.matrix : ROOM_CLEAN_PRESETS.standard
@@ -131,7 +138,7 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
   // routed there first when the vacuum is known to it (#68). Needs the Auth0
   // token set that the OAuth Assistant stores at sign-in - without it the
   // plugin keeps working through the Ayla API alone.
-  enableSkegox = async (devices: SharkIqVacuum[], storagePath: string, europe: boolean): Promise<void> => {
+  enableSkegox = async (devices: SharkIqVacuum[], storagePath: string, europe: boolean): Promise<SkegoxApi | null> => {
     const auth0_file = join(storagePath, global_vars.AUTH0_FILE)
     try {
       const skegox = new SkegoxApi(this.log, auth0_file, europe)
@@ -141,12 +148,49 @@ export class SharkIQPlatform implements DynamicPlatformPlugin {
           device.skegox = skegox
         })
         this.log.info(`Connected to the new SharkNinja API (${mapped} vacuum(s) linked) - commands will be sent there first.`)
-      } else {
-        this.log.info('No vacuums found on the new SharkNinja API - commands will use the Ayla API.')
+        return skegox
       }
+      this.log.info('No vacuums found on the new SharkNinja API - commands will use the Ayla API.')
+      return null
     } catch (error) {
       this.log.info(`Could not connect to the new SharkNinja API - commands will use the Ayla API. If a vacuum ignores start/stop commands, sign in again through the OAuth Assistant in the plugin settings to enable the new API. (${error})`)
+      return null
     }
+  }
+
+  // Build vacuums from the newer SharkNinja API for an account the older Ayla
+  // API lists nothing on. Everything these vacuums read and write goes to the
+  // newer API, which is where their state lives (#91).
+  adoptNewApiVacuums = async (ayla_api: AylaApi, skegox: SkegoxApi, europe: boolean): Promise<SharkIqVacuum[]> => {
+    const adopted: SharkIqVacuum[] = []
+    for (const entry of skegox.listDevices()) {
+      const vacuum = new SharkIqVacuum(ayla_api, {
+        dsn: entry.dsn,
+        // Ayla's device key and OEM model are unknown here, and nothing this
+        // vacuum does needs them - every request goes to the newer API
+        key: '',
+        oem_model: entry.model,
+        product_name: entry.name,
+      }, this.log, europe)
+      vacuum.skegox = skegox
+      vacuum.newApiOnly = true
+      await vacuum.update([])
+      vacuum._update_metadata()
+      // A SharkNinja account holds every appliance the brand makes, so the
+      // same test the Ayla path uses decides what is a vacuum (#85)
+      if (vacuum.get_property_value(Properties.OPERATING_MODE) === undefined) {
+        this.log.info(`Ignoring "${entry.name}" (${entry.dsn}) - it is on the new SharkNinja API but is not a vacuum.`)
+        continue
+      }
+      if (!vacuum._vac_model_number && entry.model) {
+        vacuum._vac_model_number = entry.model
+      }
+      adopted.push(vacuum)
+    }
+    if (adopted.length > 0) {
+      this.log.info(`Your account lists no vacuums on the older SharkNinja API, so ${adopted.length} vacuum(s) were taken from the newer one instead.`)
+    }
+    return adopted
   }
 
   // Restore accessory cache.
